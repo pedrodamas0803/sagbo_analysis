@@ -7,7 +7,7 @@
 - Work on saving the the flat decomposition for each experiment.
 - Flat field interpolation over time series
 - Make the correction of the projections a class method within the base class
-
+- Use flat fielded image to guess the mask
 
 ## Reconstruction
 

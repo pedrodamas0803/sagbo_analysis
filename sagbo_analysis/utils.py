@@ -1,11 +1,58 @@
 
-import concurrent.futures as cf 
+import os
+import concurrent.futures
+import time
 
 import numpy as np
 
 from skimage.exposure import histogram
+
+import scipy.ndimage as ndi
 from scipy.signal import find_peaks
 
+NTHREAD = os.cpu_count() - 1
+
+def zinger_remove( img, reference, medsize=3, nsigma=5 ):
+    '''
+    remove zingers. Anything which is >5 sigma after a 3x3 median filter is replaced by the filtered values
+    '''
+    dimg = img - reference
+    med = ndi.median_filter( dimg, medsize )
+    err = dimg - med
+    ds0 = err.std()
+    msk = err > ds0*nsigma
+    gromsk = ndi.binary_dilation( msk )
+    return np.where( gromsk, med, img )
+
+        
+def dezinger( in_imgs ):
+    '''
+    Everything should work well if you define a median_flat as a variable 
+    '''
+    t0 = time.time()
+    flats, darks = in_imgs
+    N = flats.shape[0]
+    median_dark = np.median(darks, axis = 0)
+    del darks
+
+    with concurrent.futures.ThreadPoolExecutor(NTHREAD) as pool:
+        def work(i):
+            return i,zinger_remove( flats[i], median_dark )
+        for i, result in pool.map( work, range(len(flats)) ):
+            flats[i] = result
+    t1 = time.time()
+
+    print(f'It took {(t1-t0):.2f}s to dezinger {N} images.')
+    return flats
+
+def ccij(args):
+    """  
+    Compute (img[i]*img[j]).sum() / npixels
+    wrapper to be able to call via threads
+    args == i, j, npixels, imgs
+    """ 
+    i,j,NY,imgs = args
+    return i,j,np.einsum( 'ij,ij', imgs[i], imgs[j] ) / NY
 
 def find_peak_position(image, height = 1e4, retrn_counts = False):
     '''
