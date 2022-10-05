@@ -27,11 +27,17 @@ def zinger_remove( img, reference, medsize=3, nsigma=5 ):
         
 def dezinger( in_imgs ):
     '''
-    Everything should work well if you define a median_flat as a variable 
+    Performs parallelized zinger removal.
+
+    Inputs
+    in_imgs: tuple; tuple in the form (flats, darks).
+
+    Written this way to have only one argument. Could be improved, but it works.
     '''
     t0 = time.time()
     flats, darks = in_imgs
     N = flats.shape[0]
+    print(f'Will dezinger {N} images. Might take few seconds.')
     median_dark = np.median(darks, axis = 0)
     del darks
 

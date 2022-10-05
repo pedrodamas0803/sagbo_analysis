@@ -1,63 +1,34 @@
-from curses.ascii import FF
 import os
 import concurrent.futures
-from statistics import mean
 
 import numpy as np
 import h5py
 import matplotlib.pyplot as plt
-import scipy.ndimage as ndi
 
 from .utils import dezinger, ccij
 
 NTHREAD = os.cpu_count() - 1
 
-# 
-# def zinger_remove( img, reference, medsize=3, nsigma=5 ):
-#     '''
-#     remove zingers. Anything which is >5 sigma after a 3x3 median filter is replaced by the filtered values
-#     '''
-#     dimg = img - reference
-#     med = ndi.median_filter( dimg, medsize )
-#     err = dimg - med
-#     ds0 = err.std()
-#     msk = err > ds0*nsigma
-#     gromsk = ndi.binary_dilation( msk )
-#     return np.where( gromsk, med, img )
-
-        
-# def dezinger( in_imgs ):
-#     '''
-#     Everything should work well if you define a median_flat as a variable 
-#     '''
-#     t0 = time.time()
-#     flats, darks = in_imgs
-#     N = flats.shape[0]
-#     median_dark = np.median(darks, axis = 0)
-#     del darks
-
-#     with concurrent.futures.ThreadPoolExecutor(NTHREAD) as pool:
-#         def work(i):
-#             return i,zinger_remove( flats[i], median_dark )
-#         for i, result in pool.map( work, range(len(flats)) ):
-#             flats[i] = result
-#     t1 = time.time()
-
-#     print(f'It took {(t1-t0):.2f}s to dezinger {N} images.')
-#     return flats
-
-# def ccij(args):
-#     """  
-#     Compute (img[i]*img[j]).sum() / npixels
-#     wrapper to be able to call via threads
-#     args == i, j, npixels, imgs
-#     """ 
-#     i,j,NY,imgs = args
-#     return i,j,np.einsum( 'ij,ij', imgs[i], imgs[j] ) / NY
-
 class BasePCAFlat:
 
+    """
+    Base class to run PCA decomposition on flat field images and to perform the correction on each of the projections at a given acquisition dataset.
+    
+    This implementation was proposed by Jailin C. et al in https://doi.org/10.1107/S1600577516015812.
+
+    Code written by ID11 @ ESRF staff. 
+    
+    Jonathan Wright - Implementation based on research paper
+    Pedro D. Resende - Added saving and loading from file capabilities 
+
+    """
+
     def __init__(self):
+
+        """
+        Initializes all variables needed to perform the PCA decomposition / correction with empty values to be used by the child classes.
+
+        """
 
         self.flats = np.empty(shape=(2048,2048), dtype=np.float32)
         self._darks = np.empty(shape=(2048,2048), dtype=np.float32)
@@ -70,6 +41,21 @@ class BasePCAFlat:
     
     
     def setmask(self, prop = 0.125):
+
+        '''
+        Sets the mask to select where the model is going to be fitted.
+
+        Input
+        prop: float, 0.125 by default;
+        
+        By default it sets the strips on each side of the frame in the form:
+            mask[:, lim:] = True
+            mask[:, -lim:] = True
+        Where lim = prop * flat.shape[1]
+
+        If you need a custom mask, see update_mask() method.
+
+        '''
         lim = int(prop * self.mean.shape[1])
         self.mask = np.zeros(self.mean.shape, dtype = bool)
         self.mask[:, :lim ] = True
@@ -77,20 +63,71 @@ class BasePCAFlat:
         self.g = [np.ones(self.mask.sum())] + [ component[self.mask] for component in self.components]
 
     def update_mask(self, mask:np.ndarray):
+
+        """
+        Method to update the mask with a custom mask in the form of a boolean 2+D array.
+
+        Input
+        mask: np.ndarray, float; 
+        
+        It will set the mask, replacing the standard mask created with setmask().
+        """
         if mask.dtype == bool:
             self.mask = mask
         else:
             print('Wrong type of mask, keeping initial mask.')
 
     def setdark(self):
+
+        """
+        Generates the median dark image from the input images, whether from file or dark frames.
+        """
         self.dark = np.median(self._darks, axis = 0)
 
     def _set_projections(self, projections:np.ndarray):
+
+        """
+        Sets the projections where the model will be fitted as an attribute of the class.
+        
+        Input
+        projections: np.ndarray, float; the stack of radiographs to be flat corrected
+
+        It performs zinger removal prior to setting the projections attribute.
+        """
         
         projections = dezinger((projections, self.dark))
         self.projections = projections
 
+    def plotComponents(self):
+
+        """
+        Plots the components that were calculated by PCA decomposition.
+        """
+
+        N = len(self.components)
+        row = int( np.floor( np.sqrt(N+2) ) )
+        col = int( np.ceil( (N+2) / row ) )
+        f, ax = plt.subplots( row, col, figsize = (16, 8))
+        a = ax.ravel()
+        img = a[0].imshow( self.mean )
+        a[0].set(title='mean')
+        f.colorbar( img, ax=a[0] )
+        for i in range( N ):
+            img = a[i+1].imshow( self.components[i] )
+            a[i+1].set(title=str(i))
+            f.colorbar( img, ax=a[i+1] )
+        f.tight_layout()
+        plt.show(False)
+
+
     def correctproj(self, projection):
+
+        """
+        Performs the correction on one projection of the stack.
+        Input
+
+        projection: np.ndarray, float; radiograph from the acquisition stack.
+        """
         logp = np.log( projection.astype( np.float32 ) - self.dark )
        
         cor = self.mean - logp
@@ -98,12 +135,22 @@ class BasePCAFlat:
         return self.fit( cor )
     
     def readcorrect1(self, ii):
+
+        """
+        Method to allow correction in a paralelized manner.
+        """
         cor, s =  self.correctproj( self.projections[ii] )
         return ii, cor, s
     
     
-    def fit(self, cor ):
-        """ This is for each projection, so worth optimising ... """
+    def fit(self, cor):
+
+        """ 
+        Performs the fit to determine the weight coefficient of each component to correct a given projection. 
+
+        This is for each projection, so worth optimising ... 
+        """
+
         y = cor[self.mask]
         g = self.g   # gradients
         # Form RHS
@@ -124,6 +171,14 @@ class BasePCAFlat:
         return cor - calc, solution
 
     def correct_stack(self, projections: np.ndarray, save_path:str):
+
+        """
+        Performs the flat field correction at each projection and saves it into a file.
+
+        Inputs
+        projections: np.ndarray, float; the radiographs stack
+        save_path: str; full path to the output h5 file where you want to save it
+        """
 
         self._set_projections(projections)
         # self.mask = self.__calculate_mask()
@@ -150,10 +205,16 @@ class BasePCAFlat:
 
     def save_decomposition(self, path:str):
 
+        """
+        Saves the basic information of a PCA decomposition allowing the correction to be loaded by PCAFlatFromFile.
+
+        Input:
+        path: str; full path to the h5 file you want to save your results. It will overwrite!! Be careful.
+
+        """
+
         with h5py.File(path, "w") as hout:
-            # solution = hout.create_dataset( "fitvals", shape = (len(projections), len(p.g)), dtype=float )
-            # projections = hout.create_dataset( "projections", shape = projections.shape, dtype = np.float32,
-            #                                 chunks = (1, projections.shape[1], projections.shape[2] ) )
+            hout['eigenvalues'] = self.ei
             hout['dark'] = self.dark
             hout['p_mean'] = self.mean
             hout['p_components'] = np.array(self.components)
@@ -164,6 +225,9 @@ class BasePCAFlat:
 class PCAFlatImages(BasePCAFlat):
 
     """
+    Class to perform the PCA decomposition from a stack of flats and a stack of darks. 
+    The main purpose of this is to save a decomposition with representative flats from your experiment (or a subset), 
+    and then reinitialize the object using PCAFlatFromFile and perform the corrections for each dataset. 
 
     """
     def __init__(self, flats: np.ndarray, darks:np.ndarray = None, projections:np.ndarray = None):
@@ -172,18 +236,19 @@ class PCAFlatImages(BasePCAFlat):
         Inputs: 
         Flats: np.ndarray; a stack of dark corrected flat field images
         Darks: np.ndarray; an image or stack of images of the dark current images of the camera.
-        Projections: np.ndarray; stack of radiographs to be used to calculate 
+        Projections: np.ndarray, optional; stack of radiographs to be corrected. 
+
+        If projections is not None, it will correct the projection stack used on the initialization of the object.
 
         Does the log scaling.
-        Subtracts mean and does eigenvector decomposition
+        Subtracts mean and does eigenvector decomposition.
+
         """
         super().__init__()
         self.flats = self._allocate_memory(flats.shape)  # take a log here
 
         if darks is not None:
             self._darks = darks.astype(np.float32)
-        else:
-            self._darks = np.zeros(flats[0].shape, dtype = np.float32)
 
         self._prepare_flats(flats, darks)
 
@@ -195,33 +260,19 @@ class PCAFlatImages(BasePCAFlat):
         self.flats = self.flats - self.mean # makes a copy
         self.cov = self.correlate( )
         self.decompose()
-
-    def __calculate_mask(self, mult=20):
-
-        if self.projections is not None:
-
-            mean_x = self.projections.mean(axis=(0,1))
-            thrs = mean_x.mean() + mult * mean_x.std()
-
-            def _calc_ii(mean_x):
-                for ii, value in enumerate(mean_x):
-                    if value > thrs:
-                        return ii
-            ii = _calc_ii(mean_x)
-
-            self.mask = np.zeros(self.projections[0].shape, dtype=bool)
-            self.mask[:, :ii] = True
-            self.mask[:, -ii:]
-        
-        else:
-
-            self.mask = np.ones(self.flats[0].shape, dtype=bool)
-
-        return self.mask
                 
     
     def _allocate_memory(self, shape:tuple, dtype: np.dtype = np.float32):
+        """
+        Initializes a new numpy array with the required shape.
 
+        Args:
+            shape (tuple): shape of the array (M x N x L).
+            dtype (np.dtype, optional): type. Defaults to np.float32.
+
+        Returns:
+            empty array of shape (shape)
+        """
         return np.empty(shape, dtype=dtype)
     
     def _prepare_flats(self, flats:np.ndarray, darks:np.ndarray):
@@ -278,14 +329,14 @@ class PCAFlatImages(BasePCAFlat):
         print("Created",N,"components at", nsigma,"sigma")
         self.components = [None,] * N
         
-        def calc1(i):
-            calc = np.einsum('i,ijk->jk', self.eigenvectors[:,i], self.flats) 
+        def calculate(ii):
+            calc = np.einsum('i,ijk->jk', self.eigenvectors[:,ii], self.flats) 
             norm = (calc**2).sum()
-            return i, calc / np.sqrt( norm )
+            return ii, calc / np.sqrt( norm )
         
         with concurrent.futures.ThreadPoolExecutor(NTHREAD) as pool:
-            for i, result in pool.map( calc1, range(N) ):
-                self.components[i] = result
+            for ii, result in pool.map( calculate, range(N) ):
+                self.components[ii] = result
         # simple gradients
         r, c = self.components[0].shape
         
@@ -294,83 +345,35 @@ class PCAFlatImages(BasePCAFlat):
         
                                
             
-    def plotComponents(self):
-        N = len(self.components)
-        row = int( np.floor( np.sqrt(N+2) ) )
-        col = int( np.ceil( (N+2) / row ) )
-        f, ax = plt.subplots( row, col, figsize = (16, 8))
-        a = ax.ravel()
-        a[0].plot( self.eigenvalues[:-1], "+-" )
-        a[0].plot( self.eigenvalues[:N], "o-")
-        a[0].set(yscale='log', title='eigenvalues')
-        img = a[1].imshow( self.mean )
-        a[1].set(title='mean')
-        f.colorbar( img, ax=a[1] )
-        for i in range( N ):
-            img = a[i+2].imshow( self.components[i] )
-            a[i+2].set(title=str(i))
-            f.colorbar( img, ax=a[i+2] )
-        plt.show(False)
+    # def plotComponents(self):
+    #     N = len(self.components)
+    #     row = int( np.floor( np.sqrt(N+2) ) )
+    #     col = int( np.ceil( (N+2) / row ) )
+    #     f, ax = plt.subplots( row, col, figsize = (16, 8))
+    #     a = ax.ravel()
+    #     a[0].plot( self.eigenvalues[:-1], "+-" )
+    #     a[0].plot( self.eigenvalues[:N], "o-")
+    #     a[0].set(yscale='log', title='eigenvalues')
+    #     img = a[1].imshow( self.mean )
+    #     a[1].set(title='mean')
+    #     f.colorbar( img, ax=a[1] )
+    #     for i in range( N ):
+    #         img = a[i+2].imshow( self.components[i] )
+    #         a[i+2].set(title=str(i))
+    #         f.colorbar( img, ax=a[i+2] )
+    #     plt.show(False)
             
-    def setmask(self):
-        # self.mask = mask
-        self.g = [np.ones(self.mask.sum())] + [ component[self.mask] for component in self.components ] 
-    
-    def setdark(self):
-        self.dark = np.median(self._darks, axis = 0)
-            
-    # def correctproj(self, projection):
-    #     logp = np.log( projection.astype( np.float32 ) - self.dark )
-       
-    #     cor = self.mean - logp
-    #     # model to be fitted !!
-    #     return self.fit( cor )
-        
-    # def fit(self, cor ):
-    #     """ This is for each projection, so worth optimising ... """
-    #     y = cor[self.mask]
-    #     g = self.g   # gradients
-    #     # Form RHS
-    #     rhs = [ np.dot( y, g[i]) for i in range(len(g)) ]
-    #     # Form LSQ matrix
-    #     mat = np.zeros( (len(g), len(g)), float )
-    #     for i in range( len(g) ):
-    #         mat[i,i] = np.dot(g[i],g[i])
-    #         for j in range(i):
-    #             mat[i,j] = mat[j,i] = np.dot(g[i],g[j])
-    #     # Solve
-    #     pinv = np.linalg.pinv( mat, hermitian=True )
-    #     solution = np.dot( pinv, rhs )
-    #     # Compute
-    #     calc = np.full( self.components[0].shape, solution[0] )
-    #     for i in range(len(g)-1):
-    #         np.add( calc, self.components[i] * solution[i+1] , calc )
-    #     return cor - calc, solution
-
-    # def save_decomposition(self, path:str):
-
-    #     with h5py.File(path, "w") as hout:
-    #         # solution = hout.create_dataset( "fitvals", shape = (len(projections), len(p.g)), dtype=float )
-    #         # projections = hout.create_dataset( "projections", shape = projections.shape, dtype = np.float32,
-    #         #                                 chunks = (1, projections.shape[1], projections.shape[2] ) )
-    #         hout['dark'] = self.dark.astype(np.float32)
-    #         hout['p_mean'] = self.mean.astype(np.float32)
-    #         hout['p_components'] = np.array( self.components ).astype(np.float32)
-    #         hout['p_mask'] = self.mask
-    #         hout.flush()
 
 class PCAFlatFromFile(BasePCAFlat):
 
     """
     
-    Class to read the results of the flat field flat field decomposition from a saved file using PCAFlatImages.
+    Class to read the results of a PCA  decomposition from a saved file using PCAFlatImages.
 
-    Ideally the decomposition could be placed in the acquisition directory and the corrected projections saved inside each dataset folder.
+    Ideally the decomposition could be placed in the acquisition directory and the corrected projections 
+    saved inside each dataset folder.
 
     """
-
-
- 
 
     def __init__(self, path:str):
 
@@ -384,8 +387,7 @@ class PCAFlatFromFile(BasePCAFlat):
 
         self.path = path
         self._read_PCA_flat_from_file()
-        # self.__calculate_mask()
-
+       
     def _read_PCA_flat_from_file(self):
 
         with h5py.File(self.path, 'r') as hin:
@@ -396,7 +398,7 @@ class PCAFlatFromFile(BasePCAFlat):
             self.components = hin['p_components'][:].astype(np.float32)
             self.mask = hin['p_mask'][:].astype(np.float32)
         
-        print("read the file content! ")
+        print("Read the file content!")
 
         
 
