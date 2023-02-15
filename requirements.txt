@@ -1,11 +1,11 @@
 numpy
 matplotlib
 scipy
-skimage
+scikit-image
 h5py
 hdf5plugin
 networkx
 mayavi
 PCA_Flats
-corrct
+# corrct
 gmsh
