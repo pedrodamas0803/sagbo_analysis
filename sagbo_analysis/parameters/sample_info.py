@@ -2,6 +2,7 @@ import configparser
 import os
 from dataclasses import dataclass
 
+
 @dataclass
 class SampleInfo:
 
@@ -10,7 +11,7 @@ class SampleInfo:
 
     sample_dir: str - directory where the data for the referred sample is stored, 
                       e.g.: '/data/visitor/proposal/beamline/session/sample_name'
-    
+
     base_name: str - text appended to the sample name to save the sequence of datasets,
                      e.g.: '/data/visitor/proposal/beamline/session/sample_name/sample_name_{base_name}'
 
@@ -26,21 +27,23 @@ class SampleInfo:
     sample_dir: str
     base_name: str
     darks_path: str
-    processing_dir: str 
-    
+    processing_dir: str
+    flats_path: str
+
     flats_entry: str = '/1.1/measurement/marana'
     projs_entry: str = '/2.1/measurement/marana'
     darks_entry: str = '1.1/measurement/marana'
     angles_entry: str = '2.1/measurement/diffrz'
-    
+    load_entry: str = '1.2/measurement/stress_adc_input'
+
     @property
-    def exp_name(self): 
+    def exp_name(self):
         return self.sample_dir.split('/')[3]
-    
+
     @property
     def sample_name(self):
         return self.sample_dir.split('/')[-2]
-    
+
     @property
     def pca_flat_file(self):
         return os.path.join(self.processing_dir, 'PCA_flats.h5')
@@ -48,26 +51,25 @@ class SampleInfo:
     @property
     def config_file(self):
         return os.path.join(self.processing_dir, 'config.ini')
-    
+
     @property
     def datasets(self):
         datasets = []
         for dataset in os.listdir(self.sample_dir):
             if self.sample_name in dataset and self.base_name in dataset:
-                datasets.append(dataset)  
+                datasets.append(f'{self.sample_dir}{dataset}/{dataset}.h5')
         datasets.sort()
-        return datasets
-    
-
+        return {f'path_{ii+1}': dataset for ii, dataset in enumerate(datasets)}
 
     def _generate_config(self):
 
         config = configparser.ConfigParser()
 
         config['DIRECTORIES'] = {
-            'Acquisition_dir' : self.sample_dir,
-            'Base_name' : self.base_name,
+            'Acquisition_dir': self.sample_dir,
+            'Base_name': self.base_name,
             'Darks_path': self.darks_path,
+            'Flats path': self.flats_path,
             'Processing_dir': self.processing_dir,
             'PCA_flat_file': self.pca_flat_file,
             'Experiment_name': self.exp_name,
@@ -75,9 +77,7 @@ class SampleInfo:
             'Config_file': self.config_file
         }
 
-        config['DATASETS'] = {
-            'datasets': self.datasets
-        }
+        config['DATASETS'] = self.datasets
 
         # config['RECONSTRUCTION'] = {
         #     'Number_of_acquisitions' : 1,
@@ -86,10 +86,11 @@ class SampleInfo:
         # }
 
         config['ENTRIES'] = {
-            'Projections' : self.projs_entry,
-            'Flats' : self.flats_entry,
-            'Darks' : self.darks_entry, 
-            'Angles': self.angles_entry
+            'Projections': self.projs_entry,
+            'Flats': self.flats_entry,
+            'Darks': self.darks_entry,
+            'Angles': self.angles_entry,
+            'Load': self.load_entry
         }
 
         return config
@@ -99,11 +100,24 @@ class SampleInfo:
         config = self._generate_config()
         if not os.path.exists(self.processing_dir):
             os.mkdir(self.processing_dir)
-        
+
+        self._create_processing_dirs()
+
         with open(self.config_file, 'w') as configfile:
 
             config.write(configfile)
 
+    def _create_processing_dirs(self):
+
+        for dataset in self.datasets.values():
+            dataset_name = os.path.splitext(dataset)[0].split('/')[-1]
+            print(dataset_name)
+
+            dataset_proc_dir = os.path.join(self.processing_dir, dataset_name)
+
+            if not os.path.exists(dataset_proc_dir):
+                os.mkdir(dataset_proc_dir)
+                print(f'Created {dataset_name} processing folder.')
 
 
 # class SampleConfigWriter(SampleInfo):
@@ -150,7 +164,7 @@ class SampleInfo:
 #         config = self._generate_config()
 #         if not os.path.exists(self.processing_dir):
 #             os.mkdir(self.processing_dir)
-        
+
 #         with open(self.config_file, 'w') as configfile:
 
 #             config.write(configfile)
@@ -182,6 +196,3 @@ class SampleInfo:
 #         config.read(path)
 #     except FileNotFoundError as e:
 #         print('The configuration file does not exist.')
-        
-
-

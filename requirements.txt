@@ -6,6 +6,6 @@ h5py
 hdf5plugin
 networkx
 mayavi
-PCA_Flats
-# corrct
+PCA-Flats
+corrct
 gmsh

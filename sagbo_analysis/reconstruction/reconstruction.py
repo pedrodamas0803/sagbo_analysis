@@ -1,4 +1,2 @@
-import numpy as np
-
 import corrct as cct
-
+import numpy as np
