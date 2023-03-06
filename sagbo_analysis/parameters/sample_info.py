@@ -69,7 +69,7 @@ class SampleInfo:
             'Acquisition_dir': self.sample_dir,
             'Base_name': self.base_name,
             'Darks_path': self.darks_path,
-            'Flats path': self.flats_path,
+            'Flats_path': self.flats_path,
             'Processing_dir': self.processing_dir,
             'PCA_flat_file': self.pca_flat_file,
             'Experiment_name': self.exp_name,

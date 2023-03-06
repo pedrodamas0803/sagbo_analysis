@@ -14,10 +14,12 @@ class FlatFieldCorrection:
         cfg = read_config_file(path)
 
         self.pca_flat_file = cfg['pca_flat_file']
+        self.flats_path = cfg['flats_path']
         self.datasets = cfg['datasets']
         self.projs_entry = cfg['projs_entry']
         self.angles_entry = cfg['angles_entry']
         self.processing_dir = cfg['processing_dir']
+        self.flats_entry = cfg['flats_entry']
         self.increment = increment
 
     @property
@@ -28,46 +30,43 @@ class FlatFieldCorrection:
                 datasets.append(dataset)
         return datasets
 
-    # TODO
-    def run_correction(self):
-
-        pca = PCAFlatFromFile(path=self.pca_flat_file)
-
+    @property
+    def saving_paths(self):
+        saving_paths = []
         for dataset in self.selected_datasets:
 
             name = get_dataset_name(dataset)
             path_to_save = os.path.join(
                 self.processing_dir, name, f'{name}.h5')
-            print(name)
-            print(path_to_save)
-            # try:
-            #     projs, angles = self._load_proj_stack(dataset)
+            saving_paths.append(path_to_save)
+        return saving_paths
 
-            #     assert path_to_save != dataset
+    # TODO
+    def run_correction(self):
 
-            #     if os.path.exists(path_to_save) and path_to_save != dataset:
-            #         print(f'Will remove {path_to_save}')
-            #         old_dir = os.getcwd()
-            #         os.chdir(os.path.dirname(path_to_save))
-            #         os.remove(f'{name}.h5')
-            #         os.chdir(old_dir)
+        pca = PCAFlatFromFile(path=self.pca_flat_file)
 
-            #     pca.correct_stack(projections=projs, save_path=path_to_save)
+        for selected_dataset, saving_path in zip(self.selected_datasets, self.saving_paths):
 
-            #     with h5py.File(path_to_save, 'a') as hout:
+            assert selected_dataset != saving_path
 
-            #         hout['angles'] = angles
+            projections, angles = self._load_proj_stack(selected_dataset)
 
-            # except Exception as e:
-            #     print(e)
-            #     print(
-            #         f'Something went wrong with {dataset} correction.\n Nothing was saved to {path_to_save}')
+            pca.correct_stack(projections, save_path=saving_path)
+
+            with h5py.File(saving_path, 'a') as hout:
+                hout['angles'] = angles
 
     def _load_proj_stack(self, path: str):
 
         with h5py.File(path, 'r') as hin:
 
-            projs = hin[(self.projs_entry)][:].astype(np.float32)
-            angles = hin[self.angles_entry][:]
+            if hin[self.flats_entry].shape[0] > 600:
+                self.projs_entry = self.flats_entry
+                projs = hin[self.projs_entry][:].astype(np.float32)
+                angles = np.arange(0, 360, projs.shape[0])
+            else:
+                projs = hin[self.projs_entry][:].astype(np.float32)
+                angles = hin[self.angles_entry][:]
 
         return projs, angles

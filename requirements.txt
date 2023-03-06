@@ -9,3 +9,5 @@ mayavi
 PCA-Flats
 corrct
 gmsh
+astra-toolbox
+cuda-python
