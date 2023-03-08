@@ -53,9 +53,9 @@ class Reconstruction:
             proj_geom = cct.models.ProjectionGeometry.get_default_parallel()
             proj_geom.set_detector_shifts_vu(shifts)
 
-            if volFBP is None:
+            if volFBP is not None:
 
-                print('FBP volume not found, will reconstruct it.')
+                print('Found FBP volume, will use it as initial guess for SIRT.')
 
                 with cct.projectors.ProjectorUncorrected(vol_geom, angles_rad, prj_geom=proj_geom) as A:
                     volFBP, _ = solverFBP(A, data_vwu, iterations=100)
@@ -82,7 +82,6 @@ class Reconstruction:
                 del volSIRT, solverSIRT
 
             del data_vwu, angles_rad, shifts, volFBP, vol_geom, proj_geom
-            print('Going to the next volume ! ')
 
     def _load_data(self, path: str):
 
