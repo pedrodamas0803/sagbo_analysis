@@ -50,23 +50,45 @@ class FlatFieldCorrection:
 
             assert selected_dataset != saving_path
 
-            projections, angles = self._load_proj_stack(selected_dataset)
+            if not self._check_corrected_projections(saving_path):
 
-            pca.correct_stack(projections, save_path=saving_path)
+                print(f'Will correct {get_dataset_name(selected_dataset)}.')
 
-            with h5py.File(saving_path, 'a') as hout:
-                hout['angles'] = angles
+                projections, angles = self._load_proj_stack(selected_dataset)
+
+                pca.correct_stack(projections, save_path=saving_path)
+
+                with h5py.File(saving_path, 'a') as hout:
+                    hout['angles'] = angles
+            else:
+
+                print(
+                    f'Corrected images were found for {get_dataset_name(saving_path)}, skipping.')
 
     def _load_proj_stack(self, path: str):
 
         with h5py.File(path, 'r') as hin:
 
             if hin[self.flats_entry].shape[0] > 600:
-                self.projs_entry = self.flats_entry
-                projs = hin[self.projs_entry][:].astype(np.float32)
-                angles = np.arange(0, 360, projs.shape[0])
+                # self.projs_entry = self.flats_entry
+                projs = hin[self.flats_entry][:].astype(np.float32)
+                angles = np.arange(0, 360, 360/projs.shape[0])
             else:
                 projs = hin[self.projs_entry][:].astype(np.float32)
                 angles = hin[self.angles_entry][:]
 
         return projs, angles
+
+    def _check_corrected_projections(self, path: str):
+
+        if os.path.exists(path):
+
+            with h5py.File(path, 'r') as hin:
+
+                if 'projections' in hin.keys() and 'angles' in hin.keys():
+                    if hin['projections'].shape[0] == hin['angles'].shape[0]:
+                        return True
+                else:
+                    return False
+        else:
+            return False

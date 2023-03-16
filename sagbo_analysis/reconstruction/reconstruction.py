@@ -42,6 +42,8 @@ class Reconstruction:
 
         for dataset in self.processing_paths:
 
+            print(f'Will reconstruct {get_dataset_name(dataset)}.')
+
             data_vwu, angles_rad, shifts, volFBP = self._load_data(dataset)
 
             init_angle = angles_rad[0]
@@ -91,11 +93,22 @@ class Reconstruction:
             if 'volFBP' in hin.keys():
                 x0 = hin['volFBP']
 
-            projs = hin['projections'][:].astype(np.float32)
             angles = hin['angles'][:]
+            projs = hin['projections'][:].astype(np.float32)
             shifts = hin['shifts'][:]
 
+        if self.is_return_acquisition(angles):
+            projs = np.flip(projs, axis=0)
+            angles = np.flip(angles, axis=0)
+
         return np.rollaxis(projs, 1, 0), np.deg2rad(angles), shifts, x0
+
+    def is_return_acquisition(self, angles: np.ndarray):
+
+        if angles[0] > angles[-1]:
+            return True
+        else:
+            return False
 
     # def _check_FBP_rec(self, path:str):
     #     has_FBP = False

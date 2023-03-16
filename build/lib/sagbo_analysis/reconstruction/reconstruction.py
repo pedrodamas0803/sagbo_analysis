@@ -42,6 +42,8 @@ class Reconstruction:
 
         for dataset in self.processing_paths:
 
+            print(f'Will reconstruct {get_dataset_name(dataset)}.')
+
             data_vwu, angles_rad, shifts, volFBP = self._load_data(dataset)
 
             init_angle = angles_rad[0]
@@ -53,9 +55,9 @@ class Reconstruction:
             proj_geom = cct.models.ProjectionGeometry.get_default_parallel()
             proj_geom.set_detector_shifts_vu(shifts)
 
-            if volFBP is not None:
+            if volFBP is None:
 
-                print('Found FBP volume, will use it as initial guess for SIRT.')
+                print('FBP volume not found, will reconstruct it.')
 
                 with cct.projectors.ProjectorUncorrected(vol_geom, angles_rad, prj_geom=proj_geom) as A:
                     volFBP, _ = solverFBP(A, data_vwu, iterations=100)
@@ -82,6 +84,7 @@ class Reconstruction:
                 del volSIRT, solverSIRT
 
             del data_vwu, angles_rad, shifts, volFBP, vol_geom, proj_geom
+            print('Going to the next volume ! ')
 
     def _load_data(self, path: str):
 
@@ -90,11 +93,22 @@ class Reconstruction:
             if 'volFBP' in hin.keys():
                 x0 = hin['volFBP']
 
-            projs = hin['projections'][:].astype(np.float32)
             angles = hin['angles'][:]
+            projs = hin['projections'][:].astype(np.float32)
             shifts = hin['shifts'][:]
 
+        if self.is_return_acquisition(angles):
+            projs = np.flip(projs, axis=0)
+            angles = np.flip(angles, axis=0)
+
         return np.rollaxis(projs, 1, 0), np.deg2rad(angles), shifts, x0
+
+    def is_return_acquisition(self, angles: np.ndarray):
+
+        if angles[0] > angles[-1]:
+            return True
+        else:
+            return False
 
     # def _check_FBP_rec(self, path:str):
     #     has_FBP = False

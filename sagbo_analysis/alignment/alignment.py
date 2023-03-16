@@ -42,45 +42,56 @@ class ProjectionAlignment:
 
         for proc_path in self.processing_paths:
 
-            projs, angles = self._load_data(path=proc_path)
+            print(f'Will align {get_dataset_name(proc_path)}.')
 
-            projs_bin = binning(projs)
+            projs, angles, is_aligned = self._load_data(path=proc_path)
 
-            del projs
+            if not is_aligned:
+                projs_bin = binning(projs)
 
-            angles_rad = np.deg2rad(angles)
+                del projs
 
-            data_vwu = np.rollaxis(projs_bin, 1, 0)
+                angles_rad = np.deg2rad(angles)
 
-            optim = cct.utils_align.OptimizeDetectorShifts(
-                data_vwu, angles_rad, solver_cls=cct.solvers.FBP,
-                solver_opts={}, verbose=False)
+                data_vwu = np.rollaxis(projs_bin, 1, 0)
 
-            pre_shifts_v = optim.pre_align_shifts_v()
-            pre_shifts_u, cor = optim.pre_align_shifts_u(
-                background=0.1, robust=True)
+                optim = cct.utils_align.OptimizeDetectorShifts(
+                    data_vwu, angles_rad, solver_cls=cct.solvers.FBP,
+                    solver_opts={}, verbose=False)
 
-            pre_shifts_vu = np.stack(
-                [pre_shifts_v, pre_shifts_u + cor], axis=0)
-            print(pre_shifts_vu)
+                pre_shifts_v = optim.pre_align_shifts_v()
+                pre_shifts_u, cor = optim.pre_align_shifts_u(
+                    background=0.1, robust=True)
 
-            cor2 = optim.pre_cor_u_360()
-            print(f"Center-of-rotation found using 360 redundancy: {cor2}")
+                pre_shifts_vu = np.stack(
+                    [pre_shifts_v, pre_shifts_u + cor], axis=0)
+                print(pre_shifts_vu)
 
-            shifts, _ = optim.tomo_consistency_traditional(
-                cor2, iterations=self.iterations)
+                cor2 = optim.pre_cor_u_360()
+                print(f"Center-of-rotation found using 360 redundancy: {cor2}")
 
-            with h5py.File(proc_path, 'a') as hout:
-                hout['cor'] = 2 * cor2
-                hout['shifts'] = 2 * shifts
+                shifts, _ = optim.tomo_consistency_traditional(
+                    cor2, iterations=self.iterations)
+
+                with h5py.File(proc_path, 'a') as hout:
+                    hout['cor'] = 2 * cor2
+                    hout['shifts'] = 2 * shifts
+            else:
+                print(f'{get_dataset_name(proc_path)} is already aligned, skipping.')
 
     def _load_data(self, path: str):
 
+        is_aligned = False
         with h5py.File(path, 'r') as hin:
-            nz, ny, nx = hin['projections'].shape
-            ymin = (ny // 2) - (self.slab_size//2)
-            ymax = (ny // 2) + (self.slab_size//2)
-            projs = hin['projections'][:, ymin:ymax, :].astype(np.float32)
-            angles = hin['angles'][:]
 
-        return projs, angles
+            if 'shifts' in hin.keys() and 'cor' in hin.keys():
+                is_aligned = True
+                return None, None, is_aligned
+            else:
+                nz, ny, nx = hin['projections'].shape
+                ymin = (ny // 2) - (self.slab_size//2)
+                ymax = (ny // 2) + (self.slab_size//2)
+                projs = hin['projections'][:, ymin:ymax, :].astype(np.float32)
+                angles = hin['angles'][:]
+
+                return projs, angles, is_aligned
