@@ -1,8 +1,11 @@
+import configparser
 import os
+
+
+import numpy as np
 
 import gmsh
 import networkx as nx
-import numpy as np
 
 VOX_SIZE = 1.
 
