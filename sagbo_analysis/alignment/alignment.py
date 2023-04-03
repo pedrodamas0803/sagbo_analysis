@@ -9,7 +9,21 @@ from .align_utils import binning, get_dataset_name, read_config_file
 
 class ProjectionAlignment:
 
+    ''' Class to perform projection alignment based on tomographic consistency.'''
+
     def __init__(self, path: str, increment: int = 1, iterations=5, slab_size=400):
+        '''
+        Inputs: 
+
+        path: str -  the path to the configuration file where the data processing information is stored.
+        increment: int - the step between each dataset to be processed among the time-series.
+        iterations: int - number of iterations for the tomographic consistency alignment. Higher tends to be better, but takes longer.
+        slab_size: int - number of slices, centered in the height of the projections, to be used for the alignment. Higher tends to be better, the data will be binned for the calculationsfor the calculations, don't choose a number too small.
+
+        The default values tend to work well, unless the error-motion to be corrected is too large, then increasing iterations might be advisable.
+
+        TODO: include a vertical offset for a given ROI.
+        '''
 
         cfg = read_config_file(path=path)
 
@@ -39,6 +53,7 @@ class ProjectionAlignment:
         return proc_paths
 
     def run_alignment(self):
+        ''' Method to run the alignment for the selected datasets.'''
 
         for proc_path in self.processing_paths:
 

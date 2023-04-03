@@ -8,7 +8,15 @@ from .ff_utils import read_config_file
 
 class DecompositionPCA:
 
+    ''' Class that runs the PCA decomposition from a collection of flat-fields and darks and saves it to a master PCA file.'''
+
     def __init__(self, config_path: str):
+        '''
+        Inputs:
+
+        config_path: str - path to the configuration file defined by the class SampleInfo.
+
+        '''
 
         cfg = read_config_file(config_path)
 
@@ -46,6 +54,7 @@ class DecompositionPCA:
         return darks
 
     def run_decomposition(self):
+        ''' Runs the decomposition and saves it to the path given in the configuration file.'''
 
         pca = PCAFlatImages(self.flats, self.darks)
         pca.makeframes()

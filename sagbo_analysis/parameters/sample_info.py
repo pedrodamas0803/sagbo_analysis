@@ -62,6 +62,7 @@ class SampleInfo:
         return {f'path_{ii+1}': dataset for ii, dataset in enumerate(datasets)}
 
     def _generate_config(self):
+        ''' Generates the configuration file for the data processing'''
 
         config = configparser.ConfigParser()
 
@@ -90,6 +91,7 @@ class SampleInfo:
         return config
 
     def write_config(self):
+        ''' Writes the configuration file at the given data processing directory.'''
 
         config = self._generate_config()
         if not os.path.exists(self.processing_dir):
@@ -102,6 +104,7 @@ class SampleInfo:
             config.write(configfile)
 
     def _create_processing_dirs(self):
+        ''' Creates the folders for each acquisition after checking if it exists or not. '''
 
         for dataset in self.datasets.values():
             dataset_name = os.path.splitext(dataset)[0].split('/')[-1]
