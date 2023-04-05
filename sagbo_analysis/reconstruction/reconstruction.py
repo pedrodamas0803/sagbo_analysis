@@ -117,6 +117,8 @@ class Reconstruction:
 
     def is_return_acquisition(self, angles: np.ndarray):
 
+        """ Checks if the scan was taken in the negative sense of the rotation axis"""
+
         if angles[0] > angles[-1]:
             return True
         else:
