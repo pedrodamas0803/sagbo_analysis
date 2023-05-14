@@ -53,11 +53,11 @@ class DecompositionPCA:
             print(f'Something went wrong while loading darks.\n Check your darks entry.')
         return darks
 
-    def run_decomposition(self):
+    def run_decomposition(self, nsigma = 3):
         ''' Runs the decomposition and saves it to the path given in the configuration file.'''
 
         pca = PCAFlatImages(self.flats, self.darks)
-        pca.makeframes()
+        pca.makeframes(nsigma=nsigma)
         pca.setdark()
         pca.setmask()
         pca.save_decomposition(path=self.pca_flat_file)

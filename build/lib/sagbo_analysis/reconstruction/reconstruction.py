@@ -9,7 +9,17 @@ from .reconstruction_utils import get_dataset_name, read_config_file
 
 class Reconstruction:
 
+    ''' Class that runs the reconstruction of the selected datasets, by default performs only FBP reconstruction.'''
+
     def __init__(self, path: str, increment: int = 1, sirt_iter: int = 0):
+
+        '''
+        Inputs
+        path: str - path to the configuration file written by SampleInfo.
+        increment: int - te increment between datasets to be processed within the time-series data.
+        sirt_iter: int = 0 - if it's set to a number bigger than 0 it will enable a SIRT reconstruction with the given number of iterations using the FBP volume as initial guess.
+
+        '''
 
         cfg = read_config_file(path)
         self.datasets = cfg['datasets']
@@ -37,6 +47,8 @@ class Reconstruction:
         return proc_paths
 
     def run_reconstruction(self):
+
+        ''' Method that runs the reconstructions with the given parameters.'''
 
         solverFBP = cct.solvers.FBP(verbose=False, fbp_filter='hann')
 
@@ -91,24 +103,28 @@ class Reconstruction:
         with h5py.File(path, 'r') as hin:
             x0 = None
             if 'volFBP' in hin.keys():
-                x0 = hin['volFBP']
+                # dirty fix
+                del hin['volFBP']
+                # x0 = hin['volFBP']
 
             angles = hin['angles'][:]
             projs = hin['projections'][:].astype(np.float32)
             shifts = hin['shifts'][:]
 
-        if self.is_return_acquisition(angles):
-            projs = np.flip(projs, axis=0)
-            angles = np.flip(angles, axis=0)
+        # if self.is_return_acquisition(angles):
+        #     projs = np.flip(projs, axis=0)
+        #     angles = np.flip(angles, axis=0)
 
         return np.rollaxis(projs, 1, 0), np.deg2rad(angles), shifts, x0
 
-    def is_return_acquisition(self, angles: np.ndarray):
+    # def is_return_acquisition(self, angles: np.ndarray):
 
-        if angles[0] > angles[-1]:
-            return True
-        else:
-            return False
+    #     """ Checks if the scan was taken in the negative sense of the rotation axis"""
+
+    #     if angles[0] > angles[-1]:
+    #         return True
+    #     else:
+    #         return False
 
     # def _check_FBP_rec(self, path:str):
     #     has_FBP = False

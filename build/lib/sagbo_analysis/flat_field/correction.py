@@ -9,7 +9,19 @@ from .ff_utils import get_dataset_name, read_config_file
 
 class FlatFieldCorrection:
 
+    '''
+    Class that reads the PCA master file for the time-series and applies the corrections to selected datasets.
+    '''
+
     def __init__(self, path: str, increment=1):
+
+        ''' 
+        Inputs:
+
+        path: str - path to the configuration file created by SampleInfo.
+        increment: int - the increment for the processing of datasets within the time-series.
+
+        '''
 
         cfg = read_config_file(path)
 
@@ -42,7 +54,13 @@ class FlatFieldCorrection:
         return saving_paths
 
     # TODO
-    def run_correction(self):
+    def run_correction(self, prop:float = 0.125):
+
+        ''' 
+        Method that runs the correction for the selected datasets.
+
+        TODO: make it write the script to be launched by sbatch in several machines.
+        '''
 
         pca = PCAFlatFromFile(path=self.pca_flat_file)
 
@@ -56,14 +74,21 @@ class FlatFieldCorrection:
 
                 projections, angles = self._load_proj_stack(selected_dataset)
 
-                pca.correct_stack(projections, save_path=saving_path)
+                pca.correct_stack(projections, save_path=saving_path, prop=prop )
 
                 with h5py.File(saving_path, 'a') as hout:
                     hout['angles'] = angles
             else:
 
                 print(
-                    f'Corrected images were found for {get_dataset_name(saving_path)}, skipping.')
+                    f'Corrected images were found for {get_dataset_name(saving_path)}, overwriting.')
+                projections, angles = self._load_proj_stack(selected_dataset)
+
+                pca.correct_stack(projections, save_path=saving_path)
+
+                with h5py.File(saving_path, 'a') as hout:
+                    hout['angles'] = angles
+
 
     def _load_proj_stack(self, path: str):
 

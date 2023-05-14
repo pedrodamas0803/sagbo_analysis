@@ -54,7 +54,7 @@ class FlatFieldCorrection:
         return saving_paths
 
     # TODO
-    def run_correction(self):
+    def run_correction(self, prop:float = 0.125):
 
         ''' 
         Method that runs the correction for the selected datasets.
@@ -74,14 +74,21 @@ class FlatFieldCorrection:
 
                 projections, angles = self._load_proj_stack(selected_dataset)
 
-                pca.correct_stack(projections, save_path=saving_path)
+                pca.correct_stack(projections, save_path=saving_path, prop=prop )
 
                 with h5py.File(saving_path, 'a') as hout:
                     hout['angles'] = angles
             else:
 
                 print(
-                    f'Corrected images were found for {get_dataset_name(saving_path)}, skipping.')
+                    f'Corrected images were found for {get_dataset_name(saving_path)}, overwriting.')
+                projections, angles = self._load_proj_stack(selected_dataset)
+
+                pca.correct_stack(projections, save_path=saving_path)
+
+                with h5py.File(saving_path, 'a') as hout:
+                    hout['angles'] = angles
+
 
     def _load_proj_stack(self, path: str):
 
