@@ -29,12 +29,17 @@ class SampleInfo:
     darks_path: str
     processing_dir: str
     flats_path: str
+    overwrite: bool = True 
 
     flats_entry: str = '/1.1/measurement/marana'
     projs_entry: str = '/2.1/measurement/marana'
     darks_entry: str = '1.1/measurement/marana'
     angles_entry: str = '2.1/measurement/diffrz'
     load_entry: str = '1.2/measurement/stress_adc_input'
+
+    dering: bool = False
+    backend:str = 'ASTRA'
+
 
     @property
     def exp_name(self):
@@ -80,6 +85,12 @@ class SampleInfo:
 
         config['DATASETS'] = self.datasets
 
+        config['FLAGS'] = {
+            'dering' = self.dering,
+            'backend' = self.backend,
+            'overwrite' = self.overwrite
+        }
+
         config['ENTRIES'] = {
             'Projections': self.projs_entry,
             'Flats': self.flats_entry,
@@ -117,79 +128,3 @@ class SampleInfo:
                 print(f'Created {dataset_name} processing folder.')
 
 
-# class SampleConfigWriter(SampleInfo):
-
-#     def __init__(self, config:SampleInfo):
-#         super().__init__()
-
-#     def _generate_config(self):
-
-#         config = configparser.ConfigParser()
-
-#         config['DIRECTORIES'] = {
-#             'Acquisition_directory' : self.sample_dir,
-#             'Base_name' : self.base_name,
-#             'Darks_path': self.darks_path,
-#             'Processing_dir': self.processing_dir,
-#             'PCA_flat_file': self.pca_flat_file,
-#             'Experiment_name': self.exp_name,
-#             'Sample_name': self.sample_name,
-#             'Config_file': self.config_file
-#         }
-
-#         config['DATASETS'] = {
-#             'datasets': self.datasets
-#         }
-
-#         # config['RECONSTRUCTION'] = {
-#         #     'Number_of_acquisitions' : 1,
-#         #     'Slab_size' : 256,
-#         #     'Do_SIRT' : False
-#         # }
-
-#         config['ENTRIES'] = {
-#             'Projections' : self.projs_entry,
-#             'Flats' : self.flats_entry,
-#             'Darks' : self.darks_entry
-#         }
-
-#         return config
-
-
-#     def write_config(self):
-
-#         config = self._generate_config()
-#         if not os.path.exists(self.processing_dir):
-#             os.mkdir(self.processing_dir)
-
-#         with open(self.config_file, 'w') as configfile:
-
-#             config.write(configfile)
-
-# class SampleConfigReader:
-
-#     def __init__(self, config_file:str):
-
-#         cfg = _read_config(config_file)
-#         sample_info = SampleInfo(
-#             sample_dir = cfg['DIRECTORIES']['Acquisition_dir'],
-#             base_name =  cfg['DIRECTORIES']['Base_name'],
-#             darks_path = cfg['DIRECTORIES']['Darks_path'],
-#             processing_dir = cfg['DIRECTORIES']['Processing_dir'],
-#             pca_flat_file = cfg['DIRECTORIES']['PCA_flat_file'],
-#             config_file = cfg['DIRECTORIES']['Config_file'],
-#             flats_entry = cfg['ENTRIES']['Flats'],
-#             projs_entry = cfg['ENTRIES']['Projections'],
-#             darks_entry = cfg['ENTRIES']['Darks'],
-#             angles_entry= cfg['ENTRIES']['Angles']
-#         )
-
-#         return sample_info
-
-
-# def _read_config(path:str):
-#     try:
-#         config = configparser.ConfigParser()
-#         config.read(path)
-#     except FileNotFoundError as e:
-#         print('The configuration file does not exist.')

@@ -10,7 +10,7 @@ class DecompositionPCA:
 
     ''' Class that runs the PCA decomposition from a collection of flat-fields and darks and saves it to a master PCA file.'''
 
-    def __init__(self, config_path: str):
+    def __init__(self, config_path: str, mask:np.ndarray = None):
         '''
         Inputs:
 
@@ -26,6 +26,8 @@ class DecompositionPCA:
         # self.processing_dir = cfg['processing_dir']
         self.flats_entry = cfg['flats_entry']
         self.darks_entry = cfg['darks_entry']
+        if mask not None:
+            self.mask = mask
         # self.datasets = cfg['datasets']
 
     @property
