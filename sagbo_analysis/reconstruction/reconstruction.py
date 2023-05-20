@@ -26,10 +26,12 @@ class Reconstruction:
         cfg = read_config_file(path)
         self.datasets = cfg['datasets']
         self.processing_dir = cfg['processing_dir']
-        self.overwrite = cfg['overwrite']
         self.increment = increment
         self.sirt_iter = sirt_iter
         self.PDHG_iter = PDHG_iter
+        self.overwrite = False
+        if cfg['overwrite'] == 'True':
+            self.overwrite = True
 
     @property
     def selected_datasets(self):
@@ -103,7 +105,7 @@ class Reconstruction:
 
             if self.PDHG_iter > 0:
 
-                solverPDHG = cct.solvers.PDHG(verbose=False)
+                solverPDHG = cct.solvers.PDHG(verbose=True)
                 with cct.projectors.ProjectorUncorrected(vol_geom, angles_rad, prj_geom=proj_geom) as A:
                     volPDHG, _ = solverPDHG(
                         A, data_vwu, x0=volFBP, iterations=self.PDHG_iter)
@@ -112,7 +114,7 @@ class Reconstruction:
                     if 'volPDHG' in hout.keys():
                         del hout['volPDHG']
                     hout['volPDHG'] = volPDHG
-                print('Reconstructed SIRT volume and wrote it to file.')
+                print('Reconstructed PDHG volume and wrote it to file.')
 
                 del volPDHG, solverPDHG
 
@@ -122,13 +124,13 @@ class Reconstruction:
     def _load_data(self, path: str):
 
         with h5py.File(path, 'a') as hin: #dangerous
-            
+            x0 = None
             if 'volFBP' in hin.keys() and self.overwrite:
                 # dirty fix
                 del hin['volFBP']
-                x0 = None
+                
             else:
-                x0 = hin['volFBP']
+                x0 = hin['volFBP'][:].astype(np.float32)
 
 
             angles = hin['angles'][:]
