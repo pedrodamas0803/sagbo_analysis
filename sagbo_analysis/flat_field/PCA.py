@@ -26,7 +26,7 @@ class DecompositionPCA:
         # self.processing_dir = cfg['processing_dir']
         self.flats_entry = cfg['flats_entry']
         self.darks_entry = cfg['darks_entry']
-        if mask not None:
+        if mask is not None:
             self.mask = mask
         # self.datasets = cfg['datasets']
 
@@ -62,4 +62,7 @@ class DecompositionPCA:
         pca.makeframes(nsigma=nsigma)
         pca.setdark()
         pca.setmask()
+        if self.mask is not None:
+            pca.update_mask(self.mask)
+
         pca.save_decomposition(path=self.pca_flat_file)

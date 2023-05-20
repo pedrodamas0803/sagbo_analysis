@@ -1,4 +1,6 @@
 import os
+import concurrent.futures
+import time
 
 import corrct as cct
 import h5py
@@ -11,7 +13,7 @@ class Reconstruction:
 
     ''' Class that runs the reconstruction of the selected datasets, by default performs only FBP reconstruction.'''
 
-    def __init__(self, path: str, increment: int = 1, sirt_iter: int = 0):
+    def __init__(self, path: str, increment: int = 1, sirt_iter: int = 0, PDHG_iter:int = 0):
 
         '''
         Inputs
@@ -24,8 +26,10 @@ class Reconstruction:
         cfg = read_config_file(path)
         self.datasets = cfg['datasets']
         self.processing_dir = cfg['processing_dir']
+        self.overwrite = cfg['overwrite']
         self.increment = increment
         self.sirt_iter = sirt_iter
+        self.PDHG_iter = PDHG_iter
 
     @property
     def selected_datasets(self):
@@ -95,40 +99,40 @@ class Reconstruction:
 
                 del volSIRT, solverSIRT
 
+            # del data_vwu, angles_rad, shifts, volFBP, vol_geom, proj_geom
+
+            if self.PDHG_iter > 0:
+
+                solverPDHG = cct.solvers.PDHG(verbose=False)
+                with cct.projectors.ProjectorUncorrected(vol_geom, angles_rad, prj_geom=proj_geom) as A:
+                    volPDHG, _ = solverPDHG(
+                        A, data_vwu, x0=volFBP, iterations=self.PDHG_iter)
+
+                with h5py.File(dataset, 'a') as hout:
+                    if 'volPDHG' in hout.keys():
+                        del hout['volPDHG']
+                    hout['volPDHG'] = volPDHG
+                print('Reconstructed SIRT volume and wrote it to file.')
+
+                del volPDHG, solverPDHG
+
             del data_vwu, angles_rad, shifts, volFBP, vol_geom, proj_geom
             print('Going to the next volume ! ')
 
     def _load_data(self, path: str):
 
-        with h5py.File(path, 'r') as hin:
-            x0 = None
-            if 'volFBP' in hin.keys():
+        with h5py.File(path, 'a') as hin:
+            
+            if 'volFBP' in hin.keys() and self.overwrite:
                 # dirty fix
                 del hin['volFBP']
-                # x0 = hin['volFBP']
+                x0 = None
+            else:
+                x0 = hin['volFBP']
+
 
             angles = hin['angles'][:]
             projs = hin['projections'][:].astype(np.float32)
             shifts = hin['shifts'][:]
 
-        # if self.is_return_acquisition(angles):
-        #     projs = np.flip(projs, axis=0)
-        #     angles = np.flip(angles, axis=0)
-
         return np.rollaxis(projs, 1, 0), np.deg2rad(angles), shifts, x0
-
-    # def is_return_acquisition(self, angles: np.ndarray):
-
-    #     """ Checks if the scan was taken in the negative sense of the rotation axis"""
-
-    #     if angles[0] > angles[-1]:
-    #         return True
-    #     else:
-    #         return False
-
-    # def _check_FBP_rec(self, path:str):
-    #     has_FBP = False
-    #     with h5py.File(path, 'r') as hin:
-    #         if 'volFBP' in hin.keys():
-    #             has_FBP = True
-    #     return has_FBP

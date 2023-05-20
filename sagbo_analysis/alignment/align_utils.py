@@ -25,7 +25,8 @@ def read_config_file(path: str):
         'darks_entry': cfg.get('ENTRIES', 'darks'),
         'projs_entry': cfg.get('ENTRIES', 'projections'),
         'angles_entry': cfg.get('ENTRIES', 'angles'),
-        'datasets': [path for _, path in cfg.items('DATASETS')]
+        'datasets': [path for _, path in cfg.items('DATASETS')],
+        'dering' : cfg.get('FLAGS', 'dering')
 
     }
 

@@ -1,5 +1,8 @@
 import os
+import concurrent.futures
+import time
 
+from algotom.prep.removal import remove_all_stripe
 import corrct as cct
 import h5py
 import numpy as np
@@ -29,6 +32,7 @@ class ProjectionAlignment:
 
         self.processing_dir = cfg['processing_dir']
         self.datasets = cfg['datasets']
+        self.dering = cfg['dering']
         self.iterations = iterations
         self.slab_size = slab_size
         self.increment = increment
@@ -52,10 +56,35 @@ class ProjectionAlignment:
             proc_paths.append(path_to_process)
         return proc_paths
 
+    def _dering(self, path:str):
+        t0 = time.time()
+        if self.dering:
+            
+            with h5py.File(path, 'r') as hin:
+                projs = hin['projections'][:]
+            data_vwu = np.rollaxis(projs, 1, 0)
+            tmp = np.zeros_like(data_vwu)
+            del projs
+            with concurrent.futures.ProcessPoolExecutor() as pool:
+                for ii, result in enumerate(pool.map(remove_all_stripe, data_vwu)):
+                    tmp[ii]= result
+            data_vwu = tmp.copy()
+            del tmp
+            projs = np.rollaxis(data_vwu, 1, 0)
+
+            with h5py.File(path, 'a') as hout:
+                del hout['projections']
+                hout['projections'] = projs
+        t1 = time.time()
+        print(f'Deringed all {data_vwu.shape[0]} sinograms in {t1 - t0} s.')
+
+    
     def run_alignment(self, xprop = None):
         ''' Method to run the alignment for the selected datasets.'''
 
         for proc_path in self.processing_paths:
+
+            self._dering(proc_path)
 
             print(f'Will align {get_dataset_name(proc_path)}.')
 
@@ -94,6 +123,7 @@ class ProjectionAlignment:
                 with h5py.File(proc_path, 'a') as hout:
                     hout['cor'] = 2 * cor2
                     hout['shifts'] = 2 * shifts
+                    
             else:
                 print(f'{get_dataset_name(proc_path)} is already aligned, skipping.')
 

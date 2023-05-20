@@ -86,9 +86,9 @@ class SampleInfo:
         config['DATASETS'] = self.datasets
 
         config['FLAGS'] = {
-            'dering' = self.dering,
-            'backend' = self.backend,
-            'overwrite' = self.overwrite
+            'dering' : self.dering,
+            'backend' : self.backend,
+            'overwrite' : self.overwrite
         }
 
         config['ENTRIES'] = {

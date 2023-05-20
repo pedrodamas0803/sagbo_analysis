@@ -35,7 +35,7 @@ class FlatFieldCorrection:
         self.overwrite = cfg['overwrite']
         self.increment = increment
 
-        if mask not None:
+        if mask is not None:
             self.mask = mask
 
     @property
@@ -68,7 +68,7 @@ class FlatFieldCorrection:
 
         pca = PCAFlatFromFile(path=self.pca_flat_file)
 
-        if radius not None:
+        if radius is not None:
             mask = sagbo_mask(radius, prop, pca.mean.shape)
 
         for selected_dataset, saving_path in zip(self.selected_datasets, self.saving_paths):
@@ -81,20 +81,20 @@ class FlatFieldCorrection:
 
                 projections, angles = self._load_proj_stack(selected_dataset)
 
-                if radius not None:
+                if radius is not None:
                     pca.correct_stack(projections, save_path=saving_path, mask = mask )
                 else:
                     pca.correct_stack(projections, save_path = saving_path, xprop = prop)
 
                 with h5py.File(saving_path, 'a') as hout:
                     hout['angles'] = angles
-            elif overwrite:
+            elif self.overwrite:
 
                 print(
                     f'Corrected images were found for {get_dataset_name(saving_path)}, overwriting.')
                 projections, angles = self._load_proj_stack(selected_dataset)
 
-                if radius not None:
+                if radius is not None:
                     pca.correct_stack(projections, save_path=saving_path, mask = mask)
                 else:
                     pca.correct_stack(projections, save_path = saving_path, xprop = prop)

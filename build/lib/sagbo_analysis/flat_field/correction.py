@@ -4,7 +4,7 @@ import h5py
 import numpy as np
 from PCA_flats.PCA_flats import PCAFlatFromFile
 
-from .ff_utils import get_dataset_name, read_config_file
+from .ff_utils import get_dataset_name, read_config_file, sagbo_mask
 
 
 class FlatFieldCorrection:
@@ -13,7 +13,7 @@ class FlatFieldCorrection:
     Class that reads the PCA master file for the time-series and applies the corrections to selected datasets.
     '''
 
-    def __init__(self, path: str, increment=1):
+    def __init__(self, path: str, increment:int = 1, mask:np.ndarray = None):
 
         ''' 
         Inputs:
@@ -32,7 +32,11 @@ class FlatFieldCorrection:
         self.angles_entry = cfg['angles_entry']
         self.processing_dir = cfg['processing_dir']
         self.flats_entry = cfg['flats_entry']
+        self.overwrite = cfg['overwrite']
         self.increment = increment
+
+        if mask is not None:
+            self.mask = mask
 
     @property
     def selected_datasets(self):
@@ -54,7 +58,7 @@ class FlatFieldCorrection:
         return saving_paths
 
     # TODO
-    def run_correction(self, prop:float = 0.125):
+    def run_correction(self, prop:float = 0.125, radius:float = None):
 
         ''' 
         Method that runs the correction for the selected datasets.
@@ -63,6 +67,9 @@ class FlatFieldCorrection:
         '''
 
         pca = PCAFlatFromFile(path=self.pca_flat_file)
+
+        if radius is not None:
+            mask = sagbo_mask(radius, prop, pca.mean.shape)
 
         for selected_dataset, saving_path in zip(self.selected_datasets, self.saving_paths):
 
@@ -74,20 +81,28 @@ class FlatFieldCorrection:
 
                 projections, angles = self._load_proj_stack(selected_dataset)
 
-                pca.correct_stack(projections, save_path=saving_path, prop=prop )
+                if radius is not None:
+                    pca.correct_stack(projections, save_path=saving_path, mask = mask )
+                else:
+                    pca.correct_stack(projections, save_path = saving_path, xprop = prop)
 
                 with h5py.File(saving_path, 'a') as hout:
                     hout['angles'] = angles
-            else:
+            elif self.overwrite:
 
                 print(
                     f'Corrected images were found for {get_dataset_name(saving_path)}, overwriting.')
                 projections, angles = self._load_proj_stack(selected_dataset)
 
-                pca.correct_stack(projections, save_path=saving_path)
+                if radius is not None:
+                    pca.correct_stack(projections, save_path=saving_path, mask = mask)
+                else:
+                    pca.correct_stack(projections, save_path = saving_path, xprop = prop)
 
                 with h5py.File(saving_path, 'a') as hout:
                     hout['angles'] = angles
+            else:
+                continue
 
 
     def _load_proj_stack(self, path: str):

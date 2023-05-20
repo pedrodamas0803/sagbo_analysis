@@ -32,16 +32,16 @@ def get_dataset_name(path: str):
     return os.path.splitext(path)[0].split('/')[-1]
 
 def circular_mask(radius:float, shape:tuple):
-    ny = np.arange(0, shape[0]-1, 1)
-    nx = np.arange(0, shape[1]-1, 1)
+    ny = np.arange(0, shape[0], 1)
+    nx = np.arange(0, shape[1], 1)
     x, y = np.meshgrid(ny, nx)
 
-    y = y - ny // 2
-    x = x - nx // 2
+    y -= (shape[0] // 2)
+    x -= (shape[1] // 2)
 
     c = np.sqrt(x**2 + y**2)
 
-    mask = c > radius
+    mask = c < radius
 
     return mask
 

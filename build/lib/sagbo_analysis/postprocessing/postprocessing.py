@@ -21,6 +21,7 @@ class PostProcessing:
         self.increment = increment
         self.prop = prop
         self.mult = mult
+        self.min32, self.max32 = self._calc_lims_32bit()
 
     @property
     def selected_datasets(self):
@@ -41,6 +42,15 @@ class PostProcessing:
             proc_paths.append(path_to_process)
         return proc_paths
 
+    def _calc_lims_32bit(self):
+        
+        vol = self._load_volume(path = self.processing_paths[0])
+
+        imin, imax = calc_color_lims(vol, mult=self.mult)
+
+        return imin, imax
+
+
     def run_postprocessing(self):
 
         for dataset in self.processing_paths:
@@ -52,10 +62,8 @@ class PostProcessing:
             cropped_vol = crop_around_CoM(
                 vol, center_of_mass, xprop=self.prop, yprop=self.prop)
 
-            imin, imax = calc_color_lims(cropped_vol, mult=self.mult)
-
             rescaled_img = rescale_intensity(
-                cropped_vol, in_range=(imin, imax), out_range='uint8')
+                cropped_vol, in_range=(self.min32, self.max32), out_range='uint8')
 
             save_path = build_tiff_path(dataset)
 

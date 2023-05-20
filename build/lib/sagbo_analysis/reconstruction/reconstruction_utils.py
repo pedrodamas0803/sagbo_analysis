@@ -10,6 +10,8 @@ def read_config_file(path: str):
     cfg_dict = {
         'processing_dir': cfg.get('DIRECTORIES', 'processing_dir'),
         'datasets': [path for _, path in cfg.items('DATASETS')],
+        # 'dering' : cfg.get('FLAGS', 'dering'),
+        'overwrite' : cfg.get('FLAGS', 'overwrite')
 
     }
 
