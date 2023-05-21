@@ -73,6 +73,8 @@ class Reconstruction:
             proj_geom = cct.models.ProjectionGeometry.get_default_parallel()
             proj_geom.set_detector_shifts_vu(shifts)
 
+            keys = self._get_h5_keys(path = dataset)
+
             if volFBP is None or self.overwrite:
 
                 print('FBP volume not found, will reconstruct it.')
@@ -88,6 +90,10 @@ class Reconstruction:
 
             if self.sirt_iter > 0:
 
+                if 'volSIRT' in keys and not self.overwrite:
+                    print('SIRT volume found, skipping to the next. Set overwrite flag to True if you want to reconstruct it again.')
+                    continue
+
                 solverSIRT = cct.solvers.Sirt(verbose=False)
                 with cct.projectors.ProjectorUncorrected(vol_geom, angles_rad, prj_geom=proj_geom) as A:
                     volSIRT, _ = solverSIRT(
@@ -101,9 +107,11 @@ class Reconstruction:
 
                 del volSIRT, solverSIRT
 
-            # del data_vwu, angles_rad, shifts, volFBP, vol_geom, proj_geom
-
             if self.PDHG_iter > 0:
+
+                if 'volPDHG' in keys and not self.overwrite:
+                    print('PDHG volume found, skipping to the next. Set overwrite flag to True if you want to reconstruct it again.')
+                    continue
 
                 solverPDHG = cct.solvers.PDHG(verbose=True)
                 with cct.projectors.ProjectorUncorrected(vol_geom, angles_rad, prj_geom=proj_geom) as A:
@@ -120,7 +128,7 @@ class Reconstruction:
 
             del data_vwu, angles_rad, shifts, volFBP, vol_geom, proj_geom
             print('Going to the next volume ! ')
-
+    
     def _load_data(self, path: str):
 
         with h5py.File(path, 'a') as hin: #dangerous
@@ -138,3 +146,10 @@ class Reconstruction:
             shifts = hin['shifts'][:]
 
         return np.rollaxis(projs, 1, 0), np.deg2rad(angles), shifts, x0
+
+    def _get_h5_keys(self, path:str):
+
+        with h5py.File(path, 'r') as hin:
+            keys = list(hin.keys())        
+        return keys
+
