@@ -109,13 +109,8 @@ class FlatFieldCorrection:
 
         with h5py.File(path, 'r') as hin:
 
-            if hin[self.flats_entry].shape[0] > 600:
-                # self.projs_entry = self.flats_entry
-                projs = hin[self.flats_entry][:].astype(np.float32)
-                angles = np.arange(0, 360, 360/projs.shape[0])
-            else:
-                projs = hin[self.projs_entry][:].astype(np.float32)
-                angles = hin[self.angles_entry][:]
+            projs = hin[self.projs_entry][:].astype(np.float32)
+            angles = hin[self.angles_entry][:]
 
         return projs, angles
 

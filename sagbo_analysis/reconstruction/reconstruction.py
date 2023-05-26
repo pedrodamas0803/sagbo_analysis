@@ -145,6 +145,12 @@ class Reconstruction:
             projs = hin['projections'][:].astype(np.float32)
             shifts = hin['shifts'][:]
 
+            if self._is_return_scan(angles=angles):
+                projs = np.flip(projs, axis = 0)
+                angles = np.flip(angles, axis = 0)
+                shifts = np.flip(shifts, axis = 0)
+            
+
         return np.rollaxis(projs, 1, 0), np.deg2rad(angles), shifts, x0
 
     def _get_h5_keys(self, path:str):
@@ -152,4 +158,11 @@ class Reconstruction:
         with h5py.File(path, 'r') as hin:
             keys = list(hin.keys())        
         return keys
+
+    def _is_return_scan(self, angles:np.ndarray): 
+
+        if angles[0] > angles[-1]:
+            return True
+        else:
+            return False
 
