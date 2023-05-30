@@ -65,11 +65,15 @@ class ProjectionAlignment:
             data_vwu = np.rollaxis(projs, 1, 0)
             tmp = np.zeros_like(data_vwu)
             del projs
-            with concurrent.futures.ProcessPoolExecutor() as pool:
-                for ii, result in enumerate(pool.map(remove_all_stripe, data_vwu)):
-                    tmp[ii]= result
-            data_vwu = tmp.copy()
-            del tmp
+            try:
+                with concurrent.futures.ProcessPoolExecutor() as pool:
+                    for ii, result in enumerate(pool.map(remove_all_stripe, data_vwu)):
+                        tmp[ii]= result
+                data_vwu = tmp.copy()
+                del tmp
+            except ValueError:
+                print("Probably this dataset was already deringed, skipping to the next.")         
+            
             projs = np.rollaxis(data_vwu, 1, 0)
 
             with h5py.File(path, 'a') as hout:

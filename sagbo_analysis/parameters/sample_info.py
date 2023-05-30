@@ -32,10 +32,10 @@ class SampleInfo:
     overwrite: bool = True 
 
     flats_entry: str = '/1.1/measurement/marana'
-    projs_entry: str = '/2.1/measurement/marana'
-    darks_entry: str = '1.1/measurement/marana'
-    angles_entry: str = '2.1/measurement/diffrz'
-    load_entry: str = '1.2/measurement/stress_adc_input'
+    projs_entry: str = '/1.1/measurement/marana'
+    darks_entry: str = '/1.1/measurement/marana'
+    angles_entry: str = '/1.1/measurement/diffrz'
+    load_entry: str = '/1.2/measurement/stress_adc_input'
 
     dering: bool = False
     backend:str = 'ASTRA'
