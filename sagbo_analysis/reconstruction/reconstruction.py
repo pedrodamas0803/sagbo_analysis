@@ -132,14 +132,15 @@ class Reconstruction:
     def _load_data(self, path: str):
 
         with h5py.File(path, 'a') as hin: #dangerous
-            x0 = None
-            if 'volFBP' in hin.keys() and self.overwrite:
-                # dirty fix
-                del hin['volFBP']
-                
-            else:
-                x0 = hin['volFBP'][:].astype(np.float32)
 
+            if 'volFBP' in hin.keys() and not self.overwrite:
+                # dirty fix
+                x0 = hin['volFBP'][:].astype(np.float32)
+            elif 'volFBP' in hin.keys() and self.overwrite:
+                del hin['volFBP']
+                x0 = None
+            else:
+                x0 = None
 
             angles = hin['angles'][:]
             projs = hin['projections'][:].astype(np.float32)

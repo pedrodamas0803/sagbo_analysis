@@ -26,7 +26,8 @@ def read_config_file(path: str):
         'projs_entry': cfg.get('ENTRIES', 'projections'),
         'angles_entry': cfg.get('ENTRIES', 'angles'),
         'datasets': [path for _, path in cfg.items('DATASETS')],
-        'dering' : cfg.get('FLAGS', 'dering')
+        'dering' : cfg.get('FLAGS', 'dering'),
+        'overwrite' : cfg.get('FLAGS', 'overwrite')
 
     }
 

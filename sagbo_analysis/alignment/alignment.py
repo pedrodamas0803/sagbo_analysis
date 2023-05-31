@@ -33,9 +33,13 @@ class ProjectionAlignment:
         self.processing_dir = cfg['processing_dir']
         self.datasets = cfg['datasets']
         self.dering = cfg['dering']
+        self.overwrite = False
+        if cfg['overwrite'] == 'True':
+            self.overwrite = True
         self.iterations = iterations
         self.slab_size = slab_size
         self.increment = increment
+        
 
     @property
     def selected_datasets(self):
@@ -95,9 +99,9 @@ class ProjectionAlignment:
             projs, angles, is_aligned = self._load_data(path=proc_path, xprop=xprop)
 
             # dirty fix
-            is_aligned = False
+            # is_aligned = False
             
-            if not is_aligned:
+            if not is_aligned and self.overwrite:
                 projs_bin = binning(projs)
 
                 del projs
