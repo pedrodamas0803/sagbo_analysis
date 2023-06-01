@@ -32,9 +32,10 @@ class FlatFieldCorrection:
         self.angles_entry = cfg['angles_entry']
         self.processing_dir = cfg['processing_dir']
         self.flats_entry = cfg['flats_entry']
-        self.overwrite = cfg['overwrite']
         self.increment = increment
-
+        self.overwrite = False
+        if cfg['overwrite'] == 'True':
+            self.overwrite = True
         if mask is not None:
             self.mask = mask
 

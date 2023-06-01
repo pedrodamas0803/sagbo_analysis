@@ -132,18 +132,25 @@ class Reconstruction:
     def _load_data(self, path: str):
 
         with h5py.File(path, 'a') as hin: #dangerous
-            x0 = None
-            if 'volFBP' in hin.keys() and self.overwrite:
-                # dirty fix
-                del hin['volFBP']
-                
-            else:
-                x0 = hin['volFBP'][:].astype(np.float32)
 
+            if 'volFBP' in hin.keys() and not self.overwrite:
+                # dirty fix
+                x0 = hin['volFBP'][:].astype(np.float32)
+            elif 'volFBP' in hin.keys() and self.overwrite:
+                del hin['volFBP']
+                x0 = None
+            else:
+                x0 = None
 
             angles = hin['angles'][:]
             projs = hin['projections'][:].astype(np.float32)
             shifts = hin['shifts'][:]
+
+            if self._is_return_scan(angles=angles):
+                projs = np.flip(projs, axis = 0)
+                angles = np.flip(angles, axis = 0)
+                shifts = np.flip(shifts, axis = 0)
+            
 
         return np.rollaxis(projs, 1, 0), np.deg2rad(angles), shifts, x0
 
@@ -152,4 +159,11 @@ class Reconstruction:
         with h5py.File(path, 'r') as hin:
             keys = list(hin.keys())        
         return keys
+
+    def _is_return_scan(self, angles:np.ndarray): 
+
+        if angles[0] > angles[-1]:
+            return True
+        else:
+            return False
 

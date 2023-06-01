@@ -55,6 +55,7 @@ class PostProcessing:
 
         for dataset in self.processing_paths:
 
+            print(f'Processing {dataset}.')
             vol = self._load_volume(path=dataset)
 
             center_of_mass = volume_CoM(vol)
@@ -74,7 +75,9 @@ class PostProcessing:
 
         with h5py.File(path, 'r') as hin:
 
-            if 'volSIRT' in hin.keys():
+            if 'volPDHG' in hin.keys():
+                vol = hin['volPDHG'][:].astype(np.float32)            
+            elif 'volSIRT' in hin.keys():
                 vol = hin['volSIRT'][:].astype(np.float32)
             else:
                 vol = hin['volFBP'][:].astype(np.float32)
