@@ -36,6 +36,10 @@ class SampleInfo:
     darks_entry: str = '/1.1/measurement/marana'
     angles_entry: str = '/1.1/measurement/diffrz'
     load_entry: str = '/1.2/measurement/stress_adc_input'
+    distance_entry: str = '/1.1/instrument/positioners/nfdtx'
+
+    energy:float = 65.35
+    pixel_size_m: float = 0.63e-6
 
     dering: bool = False
     backend:str = 'ASTRA'
@@ -96,7 +100,13 @@ class SampleInfo:
             'Flats': self.flats_entry,
             'Darks': self.darks_entry,
             'Angles': self.angles_entry,
-            'Load': self.load_entry
+            'Load': self.load_entry,
+            'Distance' : self.distance_entry,
+        }
+
+        config['PHASE'] = {
+            'Energy' : self.energy,
+            'Pixel_size_m': self.pixel_size_m
         }
 
         return config
