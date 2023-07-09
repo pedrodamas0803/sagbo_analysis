@@ -7,12 +7,12 @@ import numpy as np
 import gmsh
 import networkx as nx
 
-VOX_SIZE = 1.
+VOX_SIZE = 1.0
 
 
 def compute_loops(entitiesUp, entitiesDown):
     """
-    Retrieve loops of connected entities, e.g. closed surface loops defining the boundaries of different volumes. 
+    Retrieve loops of connected entities, e.g. closed surface loops defining the boundaries of different volumes.
     """
     g = nx.Graph()
     for ent in entitiesUp:
@@ -30,7 +30,7 @@ def compute_loops(entitiesUp, entitiesDown):
     return loops
 
 
-def create_exterior_surfaces(bopos=5., topos=265.):
+def create_exterior_surfaces(bopos=5.0, topos=265.0):
     """
     Identify triangle elements at the bottom and top surfaces of the mesh based on node coordinates.
     """
@@ -39,16 +39,16 @@ def create_exterior_surfaces(bopos=5., topos=265.):
     el2Dnodes = np.reshape(nodeTags, (-1, 3))
 
     # retrieve surface nodes of the strut:
-    nodeTags, nodeCoords = gmsh.model.mesh.getNodesForPhysicalGroup(
-        dim=2, tag=10000)
+    nodeTags, nodeCoords = gmsh.model.mesh.getNodesForPhysicalGroup(dim=2, tag=10000)
     coords = np.reshape(nodeCoords, (-1, 3))
 
     # retrieve the nodeTags of 2D elements at the bottom surface:
     elBot = set()
     nodesBot = []
-    for coord in coords[np.where(coords[:, 0] < bopos*VOX_SIZE)]:
+    for coord in coords[np.where(coords[:, 0] < bopos * VOX_SIZE)]:
         elTags = gmsh.model.mesh.getElementsByCoordinates(
-            coord[0], coord[1], coord[2], dim=2, strict=True)
+            coord[0], coord[1], coord[2], dim=2, strict=True
+        )
         for el in elTags:
             elBot.add(el)
     for el in list(elBot):
@@ -59,9 +59,10 @@ def create_exterior_surfaces(bopos=5., topos=265.):
     # retrieve the nodeTags of 2D elements at the top surface:
     elTop = set()
     nodesTop = []
-    for coord in coords[np.where(coords[:, 0] > topos*VOX_SIZE)]:
+    for coord in coords[np.where(coords[:, 0] > topos * VOX_SIZE)]:
         elTags = gmsh.model.mesh.getElementsByCoordinates(
-            coord[0], coord[1], coord[2], dim=2, strict=True)
+            coord[0], coord[1], coord[2], dim=2, strict=True
+        )
         for el in elTags:
             elTop.add(el)
     for el in list(elTop):
@@ -93,24 +94,24 @@ def create_exterior_surfaces(bopos=5., topos=265.):
 
 
 def read_config_file(path: str):
-
     cfg = configparser.ConfigParser()
     cfg.read(path)
 
     cfg_dict = {
-        'processing_dir': cfg.get('DIRECTORIES', 'processing_dir'),
-        'datasets': [path for _, path in cfg.items('DATASETS')],
-
+        "processing_dir": cfg.get("DIRECTORIES", "processing_dir"),
+        "datasets": [path for _, path in cfg.items("DATASETS")],
+        "overwrite": cfg.get("FLAGS", "overwrite"),
+        "energy": cfg.get("PHASE", "energy"),
+        "distance_entry": cfg.get("ENTRIES", "distance"),
+        "pixel_size_m": cfg.get("PHASE", "pixel_size_m"),
     }
 
     return cfg_dict
 
 
 def get_dataset_name(path: str):
-
-    return os.path.splitext(path)[0].split('/')[-1]
+    return os.path.splitext(path)[0].split("/")[-1]
 
 
 def build_tiff_path(path: str):
-
-    return os.path.splitext(path)[0]+'.tiff'
+    return os.path.splitext(path)[0] + ".tiff"

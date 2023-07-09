@@ -1,5 +1,6 @@
 import os
 import concurrent.futures
+import time
 
 import gmsh
 import networkx
@@ -9,7 +10,7 @@ import corrct as cct
 from nabu.preproc.phase import PaganinPhaseRetrieval
 import skimage as sk
 
-from meshing_utils import read_config_file, get_dataset_name
+from .meshing_utils import read_config_file, get_dataset_name
 
 
 class Meshing:
@@ -23,12 +24,14 @@ class Meshing:
         self.datasets = cfg["datasets"]
         self.overwrite = True if cfg["overwrite"] == True else False
         self.energy = float(cfg["energy"])
-        self.distance_entry = cfg["distance"]
-        self.pixel_size_m = cfg["pixel_size_m"]
-        self.delta_beta = delta_beta
+        self.distance_entry = cfg["distance_entry"]
+        self.pixel_size_m = float(cfg["pixel_size_m"])
+        self.delta_beta = float(delta_beta)
         self._reference_volume = reference_volume
         self.mesh_dir = os.path.join(self.processing_dir, "meshing")
-        self.h5_path = self.mesh_dir + get_dataset_name(self.selected_datasets)
+        self.h5_path = os.path.join(
+            self.mesh_dir, f"{get_dataset_name(self.selected_datasets)}.h5"
+        )
 
         self._check_mesh_dir()
 
@@ -36,29 +39,26 @@ class Meshing:
     def distance(self):
         with h5py.File(self.datasets[0], "r") as hin:
             distance = hin[self.distance_entry][()]
-        return distance
+        return distance * 1e-3
 
     @property
     def selected_datasets(self):
         return self.datasets[self._reference_volume]
 
     @property
-    def processing_paths(self):
-        proc_paths = []
-        for dataset in self.selected_datasets:
-            name = get_dataset_name(dataset)
-            path_to_process = os.path.join(self.processing_dir, name, f"{name}.h5")
-            proc_paths.append(path_to_process)
+    def reference_data_path(self):
+        name = get_dataset_name(self.selected_datasets)
+        path_to_process = os.path.join(self.processing_dir, name, f"{name}.h5")
+        proc_paths = path_to_process
         return proc_paths
 
     def _get_corr_projections(self):
         print("Will get projections from file.")
 
-        for proc_path in self.processing_paths:
-            with h5py.File(proc_path, "r") as hin:
-                projs = hin["projections"][:].astype(np.float32)
-                angles = hin["angles"][:].astype(np.float32)
-                shifts = hin["shifts"][:]
+        with h5py.File(self.reference_data_path, "r") as hin:
+            projs = hin["projections"][:].astype(np.float32)
+            angles = hin["angles"][:].astype(np.float32)
+            shifts = hin["shifts"][:]
         return projs, angles, shifts
 
     def _check_mesh_dir(self):
@@ -69,6 +69,7 @@ class Meshing:
     def retrieve_phase(self):
         projs, angles, shifts = self._get_corr_projections()
 
+        t0 = time.time()
         paganin = PaganinPhaseRetrieval(
             projs[0].shape,
             distance=self.distance,
@@ -82,9 +83,11 @@ class Meshing:
             for ii, proj in enumerate(pool.map(paganin.retrieve_phase, projs)):
                 ret_projs[ii] = proj
 
-        print("Applied phase retrieval on the stack of projections.")
+        print(
+            f"Applied phase retrieval on the stack of projections in {time.time()-t0}."
+        )
         angles_rad = np.deg2rad(angles)
-        self._save_projections(projs=ret_projs, angles=angles_rad)
+        self._save_projections(projs=ret_projs, angles=angles_rad, shifts=shifts)
 
         return np.rollaxis(ret_projs, 1, 0), angles_rad, shifts
 
@@ -115,7 +118,9 @@ class Meshing:
 
         vol_geom = cct.models.VolumeGeometry.get_default_from_data(data_vwu)
 
-        with cct.projectors.ProjectorUncorrected(vol_geom, angles_rad, proj_geom) as A:
+        with cct.projectors.ProjectorUncorrected(
+            vol_geom, angles_rad, prj_geom=proj_geom
+        ) as A:
             volFBP, _ = solverFBP(A, data_vwu, iterations=10)
 
         print("Finished reconstruction.")
