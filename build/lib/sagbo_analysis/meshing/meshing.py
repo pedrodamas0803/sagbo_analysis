@@ -1,21 +1,35 @@
 import os
 import concurrent.futures
 import time
+import sys
 
 import gmsh
 import networkx
 import numpy as np
 import h5py
 import corrct as cct
+import scipy.ndimage as ndi
 from nabu.preproc.phase import PaganinPhaseRetrieval
-import skimage as sk
+from skimage.exposure import rescale_intensity
+from skimage.io import imread, imsave
+from skimage.filters import threshold_otsu
 
+from dvc_preprocessing.preprocessing import crop_around_CoM, volume_CoM
 from .meshing_utils import read_config_file, get_dataset_name
+from ..utils import calc_color_lims
 
 
 class Meshing:
     def __init__(
-        self, path: str, delta_beta=250, mesh_size: int = 12, reference_volume: int = 0
+        self,
+        path: str,
+        delta_beta=60,
+        mesh_size: int = 12,
+        reference_volume: int = 0,
+        mult=1,
+        slab_size=350,
+        prop=0.25,
+        iters=5,
     ):
         cfg = read_config_file(path=path)
 
@@ -29,8 +43,16 @@ class Meshing:
         self.delta_beta = float(delta_beta)
         self._reference_volume = reference_volume
         self.mesh_dir = os.path.join(self.processing_dir, "meshing")
+
+        self.mult = mult
+        self.slab_size = slab_size
+        self.prop = prop
+        self.iter = iters
         self.h5_path = os.path.join(
             self.mesh_dir, f"{get_dataset_name(self.selected_datasets)}.h5"
+        )
+        self.tiff_path = os.path.join(
+            self.mesh_dir, f"{get_dataset_name(self.selected_datasets)}.tiff"
         )
 
         self._check_mesh_dir()
@@ -66,7 +88,7 @@ class Meshing:
             os.mkdir(self.mesh_dir)
             print("Created mesh directory.")
 
-    def retrieve_phase(self):
+    def _retrieve_phase(self):
         projs, angles, shifts = self._get_corr_projections()
 
         t0 = time.time()
@@ -100,17 +122,17 @@ class Meshing:
             hout["delta_beta"] = self.delta_beta
             hout["shifts"] = shifts
 
-        print("Saved data in the mehsing folder")
+        print("Saved data in the meshing folder")
 
     def _save_rec_vol(self, volume: np.ndarray):
         with h5py.File(self.h5_path, "a") as hout:
             hout["volFBP"] = volume
         print("Saved volume to h5 file.")
 
-    def reconstruct(self):
+    def _reconstruct(self):
         print("Will start phase retrieval.")
 
-        data_vwu, angles_rad, shifts = self.retrieve_phase()
+        data_vwu, angles_rad, shifts = self._retrieve_phase()
 
         solverFBP = cct.solvers.FBP(fbp_filter="hann")
         proj_geom = cct.models.ProjectionGeometry.get_default_parallel()
@@ -126,3 +148,58 @@ class Meshing:
         print("Finished reconstruction.")
 
         self._save_rec_vol(volume=volFBP)
+
+        return volFBP
+
+    def _vol_post_processing(self, volume: np.ndarray):
+        print("Will start post-processing of FBP volume")
+        imin, imax = calc_color_lims(img=volume, mult=self.mult)
+
+        center_of_mass = volume_CoM(image=volume, slab_size=self.slab_size)
+
+        cropped_vol = crop_around_CoM(
+            image=volume, CoM=center_of_mass, xprop=self.prop, yprop=self.prop
+        )
+
+        rescaled_vol = rescale_intensity(
+            image=cropped_vol, in_range=(imin, imax), out_range=np.uint8
+        )
+
+        imsave(self.tiff_path, rescaled_vol, plugin="tifffile", check_contrast=False)
+
+        print("Saved tiff volume.")
+        del volume, cropped_vol
+
+        return rescaled_vol
+
+    def _create_mask(self, volume: np.ndarray = None):
+        if volume is None:
+            try:
+                volume = imread(self.tiff_path, plugin="tifffile")
+            except FileNotFoundError as e:
+                print(e)
+                sys.exit(1)
+        tmp = np.zeros_like(volume)
+        tmp[
+            3 * self.mesh_size : -3 * self.mesh_size,
+            3 * self.mesh_size : -3 * self.mesh_size,
+            3 * self.mesh_size : -3 * self.mesh_size,
+        ] = 1
+        selem = np.ones((7, 7, 7), dtype=np.uint8)
+        threshold = threshold_otsu(volume)
+        mask = np.zeros_like(volume)
+        whr = np.where(volume > threshold)
+        mask[whr] = 1
+
+        mask = ndi.binary_closing(mask, structure=selem, iterations=self.iter)
+        mask = ndi.binary_opening(mask, structure=selem, iterations=self.iter)
+
+        mask = ndi.binary_dilation(mask, structure=selem, iterations=self.iter)
+        mask = ndi.binary_erosion(mask, structure=selem, iterations=self.iter).astype(
+            np.uint8
+        )
+        mask *= tmp
+        save_path = self.tiff_path.strip(".tiff") + "_mask.tiff"
+        imsave(save_path, mask, plugin="tifffile")
+
+        return mask
