@@ -13,9 +13,15 @@ from nabu.preproc.phase import PaganinPhaseRetrieval
 from skimage.exposure import rescale_intensity
 from skimage.io import imread, imsave
 from skimage.filters import threshold_otsu
+from skimage.measure import marching_cubes
 
 from dvc_preprocessing.preprocessing import crop_around_CoM, volume_CoM
-from .meshing_utils import read_config_file, get_dataset_name
+from .meshing_utils import (
+    read_config_file,
+    get_dataset_name,
+    compute_loops,
+    create_exterior_surfaces,
+)
 from ..utils import calc_color_lims
 
 
@@ -54,6 +60,17 @@ class Meshing:
         self.tiff_path = os.path.join(
             self.mesh_dir, f"{get_dataset_name(self.selected_datasets)}.tiff"
         )
+        self.surface_mesh = os.path.join(
+            self.mesh_dir,
+            f"{get_dataset_name(self.selected_datasets)}_surface_{self.mesh_size}.msh",
+        )
+
+        self.full_mesh = os.path.join(
+            self.mesh_dir,
+            f"{get_dataset_name(self.selected_datasets)}_full_{self.mesh_size}.msh",
+        )
+
+        self.mask_path = self.tiff_path.strip(".tiff") + "_mask.tiff"
 
         self._check_mesh_dir()
 
@@ -176,6 +193,7 @@ class Meshing:
         if volume is None:
             try:
                 volume = imread(self.tiff_path, plugin="tifffile")
+                print("Imported volume from file.")
             except FileNotFoundError as e:
                 print(e)
                 sys.exit(1)
@@ -199,7 +217,141 @@ class Meshing:
             np.uint8
         )
         mask *= tmp
-        save_path = self.tiff_path.strip(".tiff") + "_mask.tiff"
-        imsave(save_path, mask, plugin="tifffile")
+
+        imsave(self.mask_path, mask, plugin="tifffile")
 
         return mask
+
+    def _get_verts_and_triangles(self, volume: np.ndarray):
+        vertices_s, triangles_s, _, _ = marching_cubes(
+            volume,
+            level=None,
+            spacing=(1, 1, 1),
+            step_size=self.mesh_size,
+            allow_degenerate=False,
+        )
+
+        vertices_s = np.fliplr(vertices_s)
+        triangles_s = np.fliplr(triangles_s)
+
+        return vertices_s, triangles_s
+
+    def _mesh_surface(self, vertices_s: np.ndarray, triangles_s: np.ndarray):
+        gmsh.clear()
+        gmsh.initialize()
+
+        ### Import surface mesh to Gmsh model:
+        vertices = vertices_s.copy()
+        triangles = triangles_s.copy()
+
+        # The tags of the nodes:
+        ll = len(vertices)
+        nodes = np.arange(1, ll + 1, 1).astype(np.uint32)
+
+        # The connectivities of the triangle elements (3 node tags per triangle) with node tags starting at 1:
+        triangles += 1
+
+        # Create one discrete surface:
+        stag = 1
+        gmsh.model.addDiscreteEntity(2, stag)
+
+        # gmsh.model.mesh.addNodes(dim, tag, nodeTags, coord, parametricCoord=[])
+        gmsh.model.mesh.addNodes(2, stag, nodes, vertices.flatten())
+
+        # gmsh.model.mesh.addElementsByType(tag, elementType, elementTags, nodeTags)
+        # elementType 2 for 3-node triangle elements:
+        gmsh.model.mesh.addElementsByType(stag, 2, [], triangles.flatten())
+
+        gmsh.write(self.surface_mesh)
+
+    def _mesh_volume(self):
+        gmsh.clear()
+        gmsh.initialize()
+        gmsh.merge(self.surface_mesh)
+
+        # reclassify the surface first, and compute the corresponding geometry:
+        angle = 80.0
+        forceParametrizablePatches = 1.0
+        includeBoundary = True
+        curveAngle = 180
+
+        gmsh.model.mesh.classifySurfaces(
+            np.deg2rad(angle),
+            includeBoundary,
+            forceParametrizablePatches,
+            np.deg2rad(curveAngle),
+        )
+        gmsh.model.mesh.createGeometry()
+
+        gmsh.model.geo.synchronize()
+
+        # retrieve surface loops defining the boundaries of (closed) volumes:
+        surfaces = gmsh.model.getEntities(2)
+        lines = gmsh.model.getEntities(1)
+        surfaceloops = compute_loops(surfaces, lines)
+
+        print(surfaceloops)
+
+        # the surfaces defining individual loops will be stored with Physical Surfaces numbered 10000 and above:
+        looptags = []
+        ii = 0
+        for sloop in surfaceloops:
+            gmsh.model.addPhysicalGroup(2, sloop, tag=10000 + ii)
+            l = gmsh.model.geo.addSurfaceLoop(sloop)
+            looptags.append(l)
+            ii += 1
+
+        # define the volume of the strut based on the exterior surface loop:
+        v = gmsh.model.geo.addVolume(looptags, tag=1)
+        gmsh.model.addPhysicalGroup(3, [v], tag=1)
+
+        # now, define mesh size fields based on the strut exterior surface:
+        struttags = surfaceloops[0]
+
+        f1 = gmsh.model.mesh.field.add("Distance")
+        gmsh.model.mesh.field.setNumbers(f1, "SurfacesList", struttags)
+
+        f2 = gmsh.model.mesh.field.add("Threshold")
+        gmsh.model.mesh.field.setNumber(f2, "InField", f1)
+        gmsh.model.mesh.field.setNumber(f2, "SizeMin", 0.8 * self.mesh_size)
+        gmsh.model.mesh.field.setNumber(f2, "SizeMax", 1.5 * self.mesh_size)
+        gmsh.model.mesh.field.setNumber(f2, "DistMin", 0.8 * self.mesh_size)
+        gmsh.model.mesh.field.setNumber(f2, "DistMax", 1.5 * self.mesh_size)
+
+        gmsh.model.mesh.field.setAsBackgroundMesh(f2)
+
+        gmsh.model.geo.synchronize()
+
+        # A few meshing options before generating the 3D mesh:
+        # gmsh.option.setNumber("Mesh.MeshSizeMin", size*voxsize)
+        # gmsh.option.setNumber("Mesh.MeshSizeMax", size*voxsize)
+        gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 1)
+        gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
+        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
+        gmsh.option.setNumber("Mesh.Algorithm", 5)
+        # gmsh.option.setNumber("Mesh.OptimizeThreshold", 0.8)
+        gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
+        gmsh.option.setNumber("Mesh.Smoothing", 2)
+        # gmsh.option.setNumber("Mesh.SmoothNormals", 1)
+
+        gmsh.model.mesh.generate(3)
+        gmsh.write(self.full_mesh)
+        gmsh.write(f"{self.full_mesh.strip('.msh')}.vtk")
+        gmsh.clear()
+
+    def mesh_volume(self):
+        if os.path.exists(self.mask_path):
+            mask = imread(self.mask_path, plugin="tifffile")
+        elif os.path.exists(self.tiff_path):
+            volume = imread(self.tiff_path, plugin="tifffile")
+            mask = self._create_mask(volume=volume)
+        else:
+            volFBP = self._reconstruct()
+            volume = self._vol_post_processing(volume=volFBP)
+            mask = self._create_mask(volume=volume)
+
+        vertices, triangles = self._get_verts_and_triangles(volume=mask)
+
+        self._mesh_surface(vertices_s=vertices, triangles_s=triangles)
+
+        self._mesh_volume()
