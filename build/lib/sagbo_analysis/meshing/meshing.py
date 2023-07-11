@@ -150,6 +150,8 @@ class Meshing:
         print("Will start phase retrieval.")
 
         data_vwu, angles_rad, shifts = self._retrieve_phase()
+        init_angle = angles_rad[0]
+        angles_rad = angles_rad - init_angle
 
         solverFBP = cct.solvers.FBP(fbp_filter="hann")
         proj_geom = cct.models.ProjectionGeometry.get_default_parallel()
@@ -209,8 +211,8 @@ class Meshing:
         whr = np.where(volume > threshold)
         mask[whr] = 1
 
-        mask = ndi.binary_closing(mask, structure=selem, iterations=self.iter)
-        mask = ndi.binary_opening(mask, structure=selem, iterations=self.iter)
+        mask = ndi.binary_closing(mask, structure=selem, iterations=self.iter // 2)
+        mask = ndi.binary_opening(mask, structure=selem, iterations=self.iter // 2)
 
         mask = ndi.binary_dilation(mask, structure=selem, iterations=self.iter)
         mask = ndi.binary_erosion(mask, structure=selem, iterations=self.iter).astype(
