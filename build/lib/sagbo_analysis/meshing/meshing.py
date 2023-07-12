@@ -4,7 +4,8 @@ import time
 import sys
 
 import gmsh
-import networkx
+
+
 import numpy as np
 import h5py
 import corrct as cct
@@ -15,6 +16,7 @@ from skimage.io import imread, imsave
 from skimage.filters import threshold_otsu
 from skimage.measure import marching_cubes
 
+# import networkx
 from dvc_preprocessing.preprocessing import crop_around_CoM, volume_CoM
 from .meshing_utils import (
     read_config_file,
@@ -26,16 +28,26 @@ from ..utils import calc_color_lims
 
 
 class Meshing:
+    """
+     Class to perform automatic meshing of a volume.
+     It will gather the projections from the reference volume, apply a Paganin filter and reconstruct a volume. It then creates a mask that is used to run a marching cubes algorithm and subsequent meshing of the volume.
+
+
+
+    _extended_summary_
+    """
+
     def __init__(
         self,
         path: str,
-        delta_beta=60,
+        delta_beta: int = 60,
         mesh_size: int = 12,
         reference_volume: int = 0,
-        mult=1,
-        slab_size=350,
-        prop=0.25,
-        iters=5,
+        mult: float = 1,
+        slab_size: int = 350,
+        prop: float = 0.25,
+        iters: int = 5,
+        struct_size: tuple = (5, 5, 5),
     ):
         cfg = read_config_file(path=path)
 
@@ -54,6 +66,7 @@ class Meshing:
         self.slab_size = slab_size
         self.prop = prop
         self.iter = iters
+        self.struct_size = struct_size
         self.h5_path = os.path.join(
             self.mesh_dir, f"{get_dataset_name(self.selected_datasets)}.h5"
         )
@@ -205,7 +218,7 @@ class Meshing:
             3 * self.mesh_size : -3 * self.mesh_size,
             3 * self.mesh_size : -3 * self.mesh_size,
         ] = 1
-        selem = np.ones((7, 7, 7), dtype=np.uint8)
+        selem = np.ones(self.struct_size, dtype=np.uint8)
         threshold = threshold_otsu(volume)
         mask = np.zeros_like(volume)
         whr = np.where(volume > threshold)
@@ -214,7 +227,7 @@ class Meshing:
         mask = ndi.binary_closing(mask, structure=selem, iterations=self.iter // 2)
         mask = ndi.binary_opening(mask, structure=selem, iterations=self.iter // 2)
 
-        mask = ndi.binary_dilation(mask, structure=selem, iterations=self.iter)
+        # mask = ndi.binary_dilation(mask, structure=selem, iterations=self.iter)
         mask = ndi.binary_erosion(mask, structure=selem, iterations=self.iter).astype(
             np.uint8
         )
@@ -325,16 +338,12 @@ class Meshing:
         gmsh.model.geo.synchronize()
 
         # A few meshing options before generating the 3D mesh:
-        # gmsh.option.setNumber("Mesh.MeshSizeMin", size*voxsize)
-        # gmsh.option.setNumber("Mesh.MeshSizeMax", size*voxsize)
         gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 1)
         gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
         gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
         gmsh.option.setNumber("Mesh.Algorithm", 5)
-        # gmsh.option.setNumber("Mesh.OptimizeThreshold", 0.8)
         gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
         gmsh.option.setNumber("Mesh.Smoothing", 2)
-        # gmsh.option.setNumber("Mesh.SmoothNormals", 1)
 
         gmsh.model.mesh.generate(3)
         gmsh.write(self.full_mesh)
@@ -347,6 +356,11 @@ class Meshing:
         elif os.path.exists(self.tiff_path):
             volume = imread(self.tiff_path, plugin="tifffile")
             mask = self._create_mask(volume=volume)
+        elif os.path.exists(self.h5_path):
+            with h5py.File(self.h5_path, "r") as hin:
+                volFBP = hin["volFBP"][:]
+            volume = self._vol_post_processing(volume=volFBP)
+            mask = self._create_mask(volume=volume)
         else:
             volFBP = self._reconstruct()
             volume = self._vol_post_processing(volume=volFBP)
@@ -357,3 +371,15 @@ class Meshing:
         self._mesh_surface(vertices_s=vertices, triangles_s=triangles)
 
         self._mesh_volume()
+
+    def _clean_meshing_dir(self, remove_h5: bool = False):
+        for filename in os.listdir(self.mesh_dir):
+            filepath = os.path.join(self.mesh_dir, filename)
+            if remove_h5:
+                os.remove(filepath)
+            else:
+                if filepath.endswith(".h5"):
+                    print("Will keep the h5 file.")
+                else:
+                    os.remove(filepath)
+        print("Cleaned the meshing directory.")
