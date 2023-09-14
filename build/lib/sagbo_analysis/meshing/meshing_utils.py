@@ -97,14 +97,24 @@ def read_config_file(path: str):
     cfg = configparser.ConfigParser()
     cfg.read(path)
 
-    cfg_dict = {
-        "processing_dir": cfg.get("DIRECTORIES", "processing_dir"),
-        "datasets": [path for _, path in cfg.items("DATASETS")],
-        "overwrite": cfg.get("FLAGS", "overwrite"),
-        "energy": cfg.get("PHASE", "energy"),
-        "distance_entry": cfg.get("ENTRIES", "distance"),
-        "pixel_size_m": cfg.get("PHASE", "pixel_size_m"),
-    }
+    try:
+        cfg_dict = {
+            "processing_dir": cfg.get("DIRECTORIES", "processing_dir"),
+            "datasets": [path for _, path in cfg.items("DATASETS")],
+            "overwrite": cfg.get("FLAGS", "overwrite"),
+            "energy": cfg.get("PHASE", "energy"),
+            "distance_entry": cfg.get("ENTRIES", "distance"),
+            "pixel_size_m": cfg.get("PHASE", "pixel_size_m"),
+        }
+    except configparser.NoSectionError:
+        cfg_dict = {
+            "processing_dir": cfg.get("DIRECTORIES", "processing_dir"),
+            "datasets": [path for _, path in cfg.items("DATASETS")],
+            "overwrite": False,
+            "energy": cfg.get("PHASE", "energy"),
+            "distance_entry": cfg.get("ENTRIES", "distance"),
+            "pixel_size_m": cfg.get("PHASE", "pixel_size_m"),
+        }
 
     return cfg_dict
 
