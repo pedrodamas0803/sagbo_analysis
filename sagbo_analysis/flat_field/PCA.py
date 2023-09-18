@@ -63,7 +63,7 @@ class DecompositionPCA:
     def mask(self):
         with h5py.File(self.flats_path, "r") as hin:
             shape = hin[self.flats_entry].shape
-        return np.ones(shape)
+        return np.ones((shape[-2], shape[-1]), dtype=bool)
 
     def run_decomposition(self, nsigma=3):
         """Runs the decomposition and saves it to the path given in the configuration file."""
