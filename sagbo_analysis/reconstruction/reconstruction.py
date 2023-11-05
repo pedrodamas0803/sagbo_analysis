@@ -15,7 +15,12 @@ class Reconstruction:
     """Class that runs the reconstruction of the selected datasets, by default performs only FBP reconstruction."""
 
     def __init__(
-        self, path: str, increment: int = 1, sirt_iter: int = 0, PDHG_iter: int = 0
+        self,
+        path: str,
+        increment: int = 1,
+        sirt_iter: int = 0,
+        PDHG_iter: int = 0,
+        n_subvols: int = 4,
     ):
         """
         Inputs
@@ -34,6 +39,7 @@ class Reconstruction:
         self.overwrite = False
         if cfg["overwrite"] == "True":
             self.overwrite = True
+        self.n_subvols = n_subvols
 
     @property
     def selected_datasets(self):
@@ -229,3 +235,8 @@ class Reconstruction:
             return True
         else:
             return False
+
+    def _divide_subvolumes(self, data_vwu: np.ndarray, zmin: int, zmax: int):
+        subvol = data_vwu[zmin:zmax]
+
+        return subvol
