@@ -40,6 +40,9 @@ class Reconstruction:
         if cfg["overwrite"] == "True":
             self.overwrite = True
         self.n_subvols = n_subvols
+        while self.shape[0] % self.n_subvols != 0:
+            self.n_subvols += 1
+            print("Updated the number of subvolumes to a suitable number.")
 
     @property
     def selected_datasets(self):
@@ -48,6 +51,12 @@ class Reconstruction:
             if ii % self.increment == 0:
                 datasets.append(dataset)
         return datasets
+
+    @property
+    def shape_vwu(self):
+        with h5py.File(self.selected_datasets[0], "r") as hin:
+            nz, ny, nx = hin["projections"].shape
+        return nz, ny, nx
 
     @property
     def processing_paths(self):
@@ -66,7 +75,11 @@ class Reconstruction:
         for dataset in self.processing_paths:
             print(f"Will reconstruct {get_dataset_name(dataset)}.")
 
-            data_vwu, angles_rad, shifts, volFBP = self._load_data(dataset)
+            for ii in range(self.n_subvols):
+                xmin, xmax = self._calc_lims(ii)
+
+                subvol = _
+                pass
 
             init_angle = angles_rad[0]
 
@@ -235,6 +248,12 @@ class Reconstruction:
             return True
         else:
             return False
+
+    def _calc_lims(self, index: int):
+        xmin = index * self.shape_vwu[0] // self.n_subvols
+        xmax = index * self.shape_vwu[0] // self.n_subvols
+
+        return xmin, xmax
 
     def _divide_subvolumes(self, data_vwu: np.ndarray, zmin: int, zmax: int):
         subvol = data_vwu[zmin:zmax]
