@@ -81,10 +81,10 @@ class Reconstruction:
 
             data_vwu, angles, shifts, x0 = self._load_data(path=dataset)
 
-            for ii in range(self.n_subvols):
+            for ii in range(self.n_subvolumes):
                 zmin, zmax = self._calc_chunk_index(index=ii)
 
-                sub_data_vwu = self._divide_subvolumes(
+                sub_data_vwu = self._divide_chunks(
                     data_vwu=data_vwu, zmin=zmin, zmax=zmax
                 )
 
