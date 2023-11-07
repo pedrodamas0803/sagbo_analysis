@@ -51,14 +51,14 @@ class Reconstruction:
 
     @property
     def shape_vwu(self):
-        with h5py.File(self.selected_datasets[0], "r") as hin:
+        with h5py.File(self.processing_paths[0], "r") as hin:
             nz, ny, nx = hin["projections"].shape
         return ny, nz, nx
 
     @property
     def n_subvolumes(self):
-        n = self.shape_vwu[1] // self.chunksize
-        r = self.shape_vwu[1] % self.chunksize
+        n = self.shape_vwu[0] // self.chunksize
+        r = self.shape_vwu[0] % self.chunksize
         if r == 0:
             return n
         else:
@@ -77,7 +77,9 @@ class Reconstruction:
         """Method that runs the reconstructions with the given parameters."""
 
         for dataset in self.processing_paths:
-            print(f"Will reconstruct {get_dataset_name(dataset)}.")
+            print(
+                f"Will reconstruct {get_dataset_name(dataset)} in {self.n_subvolumes} chunks."
+            )
 
             data_vwu, angles, shifts, x0 = self._load_data(path=dataset)
 
@@ -91,7 +93,7 @@ class Reconstruction:
                 keys = self._get_h5_keys(path=dataset)
 
                 if x0 == None or self.overwrite:
-                    print(f"Will reconstruct FBP volume in {self.n_subvols} chunks.")
+                    print(f"Reconstructing chunk {ii+1}.")
                     subFBP = self._reconstruct_FBP(
                         sinograms=sub_data_vwu, angles_rad=angles, shifts=shifts
                     )
@@ -152,7 +154,7 @@ class Reconstruction:
 
                 del volPDHG, solverPDHG
 
-            del data_vwu, angles_rad, shifts, volFBP, vol_geom, proj_geom
+            # del data_vwu, angles_rad, shifts, volFBP, vol_geom, proj_geom
             print("Going to the next volume ! ")
 
     def _reconstruct_FBP(
@@ -252,8 +254,8 @@ class Reconstruction:
         zmin = index * self.chunksize
         zmax = (index + 1) * self.chunksize
 
-        if zmax >= self.shape_vwu[1]:
-            zmax = self.shape_vwu[1]
+        if zmax >= self.shape_vwu[0]:
+            zmax = self.shape_vwu[0]
 
         return zmin, zmax
 
@@ -265,12 +267,14 @@ class Reconstruction:
             hout[f"vol{index}"] = vol
 
     def _combine_subvolumes(self, path: str):
-        vol = np.array([])
         with h5py.File(path, "a") as h:
             for ii in range(self.n_subvolumes):
-                vol = np.concatenate(h[f"vol{ii}"][:], axis=0)
+                if ii == 0:
+                    vol = h[f"vol{ii}"][:]
+                else:
+                    vol = np.concatenate((vol, h[f"vol{ii}"][:]))
 
             h["volFBP"] = vol
 
             for ii in range(self.n_subvolumes):
-                del vol[f"vol{ii}"]
+                del h[f"vol{ii}"]
