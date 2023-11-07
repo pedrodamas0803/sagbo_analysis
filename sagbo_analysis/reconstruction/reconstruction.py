@@ -20,7 +20,7 @@ class Reconstruction:
         increment: int = 1,
         sirt_iter: int = 0,
         PDHG_iter: int = 0,
-        n_subvols: int = 4,
+        chunksize: int = 512,
     ):
         """
         Inputs
@@ -39,10 +39,7 @@ class Reconstruction:
         self.overwrite = False
         if cfg["overwrite"] == "True":
             self.overwrite = True
-        self.n_subvols = n_subvols
-        while self.shape[0] % self.n_subvols != 0:
-            self.n_subvols += 1
-            print("Updated the number of subvolumes to a suitable number.")
+        self.chunksize = chunksize
 
     @property
     def selected_datasets(self):
@@ -56,7 +53,16 @@ class Reconstruction:
     def shape_vwu(self):
         with h5py.File(self.selected_datasets[0], "r") as hin:
             nz, ny, nx = hin["projections"].shape
-        return nz, ny, nx
+        return ny, nz, nx
+
+    @property
+    def n_subvolumes(self):
+        n = self.shape_vwu[1] // self.chunksize
+        r = self.shape_vwu[1] % self.chunksize
+        if r == 0:
+            return n
+        else:
+            return n + 1
 
     @property
     def processing_paths(self):
@@ -70,40 +76,35 @@ class Reconstruction:
     def run_reconstruction(self):
         """Method that runs the reconstructions with the given parameters."""
 
-        solverFBP = cct.solvers.FBP(verbose=False, fbp_filter="hann")
-
         for dataset in self.processing_paths:
             print(f"Will reconstruct {get_dataset_name(dataset)}.")
 
+            data_vwu, angles, shifts, x0 = self._load_data(path=dataset)
+
             for ii in range(self.n_subvols):
-                xmin, xmax = self._calc_lims(ii)
+                zmin, zmax = self._calc_chunk_index(index=ii)
 
-                subvol = _
-                pass
+                sub_data_vwu = self._divide_subvolumes(
+                    data_vwu=data_vwu, zmin=zmin, zmax=zmax
+                )
 
-            init_angle = angles_rad[0]
+                keys = self._get_h5_keys(path=dataset)
 
-            angles_rad = angles_rad - init_angle
+                if x0 == None or self.overwrite:
+                    print(f"Will reconstruct FBP volume in {self.n_subvols} chunks.")
+                    subFBP = self._reconstruct_FBP(
+                        sinograms=sub_data_vwu, angles_rad=angles, shifts=shifts
+                    )
+                    self._save_sub_volumes(index=ii, vol=subFBP, path=dataset)
 
-            vol_geom = cct.models.VolumeGeometry.get_default_from_data(data_vwu)
-            proj_geom = cct.models.ProjectionGeometry.get_default_parallel()
-            proj_geom.set_detector_shifts_vu(shifts)
+                    print(f"Reconstructed and wrote chunk {ii+1} to file.")
 
-            keys = self._get_h5_keys(path=dataset)
+                else:
+                    break
 
-            if volFBP is None or self.overwrite:
-                print("FBP volume not found, will reconstruct it.")
+            self._combine_subvolumes(path=dataset)
 
-                with cct.projectors.ProjectorUncorrected(
-                    vol_geom, angles_rad, prj_geom=proj_geom
-                ) as A:
-                    volFBP, _ = solverFBP(A, data_vwu, iterations=100)
-
-                with h5py.File(dataset, "a") as hout:
-                    if "volFBP" in hout.keys():
-                        del hout["volFBP"]
-                    hout["volFBP"] = volFBP
-                print("Reconstructed FBP volume and wrote it to file.")
+            print(f"Recombined all subvolumes and saved to file.")
 
             if self.sirt_iter > 0:
                 if "volSIRT" in keys and not self.overwrite:
@@ -218,14 +219,12 @@ class Reconstruction:
 
     def _load_data(self, path: str):
         with h5py.File(path, "a") as hin:  # dangerous
-            if "volFBP" in hin.keys() and not self.overwrite:
-                # dirty fix
-                x0 = hin["volFBP"][:].astype(np.float32)
-            elif "volFBP" in hin.keys() and self.overwrite:
-                del hin["volFBP"]
-                x0 = None
-            else:
-                x0 = None
+            x0 = None
+            if self.PDHG_iter > 0 or self.sirt_iter > 0:
+                try:
+                    x0 = hin["volFBP"][:]
+                except Exception:
+                    print("FBP volume not found. Reconstruct it first.")
 
             angles = hin["angles"][:]
             projs = hin["projections"][:].astype(np.float32)
@@ -249,13 +248,29 @@ class Reconstruction:
         else:
             return False
 
-    def _calc_lims(self, index: int):
-        xmin = index * self.shape_vwu[0] // self.n_subvols
-        xmax = index * self.shape_vwu[0] // self.n_subvols
+    def _calc_chunk_index(self, index: int):
+        zmin = index * self.chunksize
+        zmax = (index + 1) * self.chunksize
 
-        return xmin, xmax
+        if zmax >= self.shape_vwu[1]:
+            zmax = self.shape_vwu[1]
 
-    def _divide_subvolumes(self, data_vwu: np.ndarray, zmin: int, zmax: int):
-        subvol = data_vwu[zmin:zmax]
+        return zmin, zmax
 
-        return subvol
+    def _divide_chunks(self, data_vwu: np.ndarray, zmin: int, zmax: int):
+        return data_vwu[zmin:zmax]
+
+    def _save_sub_volumes(self, index: int, vol: np.ndarray, path: str):
+        with h5py.File(path, "a") as hout:
+            hout[f"vol{index}"] = vol
+
+    def _combine_subvolumes(self, path: str):
+        vol = np.array([])
+        with h5py.File(path, "a") as h:
+            for ii in range(self.n_subvolumes):
+                vol = np.concatenate(h[f"vol{ii}"][:], axis=0)
+
+            h["volFBP"] = vol
+
+            for ii in range(self.n_subvolumes):
+                del vol[f"vol{ii}"]
