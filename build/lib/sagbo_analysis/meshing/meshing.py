@@ -45,12 +45,14 @@ class Meshing:
         reference_volume: int = 0,
         mult: float = 1,
         slab_size: int = 350,
-        prop: float = 0.25,
+        prop: float = 0.5,
         iters: int = 5,
         struct_size: tuple = (5, 5, 5),
+        chunk_size: int = 512,
     ):
         cfg = read_config_file(path=path)
 
+        self.cfg_file = path
         self.mesh_size = mesh_size
         self.processing_dir = cfg["processing_dir"]
         self.datasets = cfg["datasets"]
@@ -67,6 +69,7 @@ class Meshing:
         self.prop = prop
         self.iter = iters
         self.struct_size = struct_size
+        self.chunk_size = chunk_size
         self.h5_path = os.path.join(
             self.mesh_dir, f"{get_dataset_name(self.selected_datasets)}.h5"
         )
@@ -107,11 +110,22 @@ class Meshing:
     def _get_corr_projections(self):
         print("Will get projections from file.")
 
-        with h5py.File(self.reference_data_path, "r") as hin:
-            projs = hin["projections"][:].astype(np.float32)
-            angles = hin["angles"][:].astype(np.float32)
-            shifts = hin["shifts"][:]
-        return projs, angles, shifts
+        if os.path.exists(self.h5_path):
+            # print("I got here.")
+            with h5py.File(self.h5_path, "a") as hin:
+                if "pag_proj" in hin.keys():
+                    projs = hin["pag_proj"][:].astype(np.float32)
+                    angles = hin["angles"][:]
+                    shifts = hin["shifts"][:]
+                hin.close()
+            return projs, angles, shifts, True
+        else:
+            with h5py.File(self.reference_data_path, "r") as hin:
+                projs = hin["projections"][:].astype(np.float32)
+                angles = hin["angles"][:].astype(np.float32)
+                shifts = hin["shifts"][:]
+                hin.close()
+            return projs, angles, shifts, False
 
     def _check_mesh_dir(self):
         if not os.path.exists(self.mesh_dir):
@@ -119,40 +133,50 @@ class Meshing:
             print("Created mesh directory.")
 
     def _retrieve_phase(self):
-        projs, angles, shifts = self._get_corr_projections()
+        projs, angles, shifts, is_retrieved = self._get_corr_projections()
 
         t0 = time.time()
-        paganin = PaganinPhaseRetrieval(
-            projs[0].shape,
-            distance=self.distance,
-            energy=self.energy,
-            delta_beta=self.delta_beta,
-            pixel_size=self.pixel_size_m,
-        )
+        if not is_retrieved:
+            paganin = PaganinPhaseRetrieval(
+                projs[0].shape,
+                distance=self.distance,
+                energy=self.energy,
+                delta_beta=self.delta_beta,
+                pixel_size=self.pixel_size_m,
+            )
 
-        ret_projs = np.zeros_like(projs)
-        with concurrent.futures.ProcessPoolExecutor(os.cpu_count() - 2) as pool:
-            for ii, proj in enumerate(pool.map(paganin.retrieve_phase, projs)):
-                ret_projs[ii] = proj
+            ret_projs = np.zeros_like(projs)
+            with concurrent.futures.ProcessPoolExecutor(os.cpu_count() - 2) as pool:
+                for ii, proj in enumerate(pool.map(paganin.retrieve_phase, projs)):
+                    ret_projs[ii] = proj
 
-        print(
-            f"Applied phase retrieval on the stack of projections in {time.time()-t0}."
-        )
-        angles_rad = np.deg2rad(angles)
-        self._save_projections(projs=ret_projs, angles=angles_rad, shifts=shifts)
-
-        return np.rollaxis(ret_projs, 1, 0), angles_rad, shifts
+            print(
+                f"Applied phase retrieval on the stack of projections in {time.time()-t0}."
+            )
+            angles_rad = np.deg2rad(angles)
+            self._save_projections(
+                projs=ret_projs,
+                angles=angles_rad,
+                shifts=shifts,
+                is_retrieved=is_retrieved,
+            )
+            return np.rollaxis(ret_projs, 1, 0), angles_rad, shifts
+        else:
+            return np.rollaxis(projs, 1, 0), angles, shifts
 
     def _save_projections(
-        self, projs: np.ndarray, angles: np.array, shifts: np.ndarray
+        self,
+        projs: np.ndarray,
+        angles: np.array,
+        shifts: np.ndarray,
     ):
-        with h5py.File(self.h5_path, "w") as hout:
+        with h5py.File(self.h5_path, "a") as hout:
             hout["pag_proj"] = projs
             hout["angles"] = angles
             hout["delta_beta"] = self.delta_beta
             hout["shifts"] = shifts
 
-        print("Saved data in the meshing folder")
+            print("Saved data in the meshing folder")
 
     def _save_rec_vol(self, volume: np.ndarray):
         with h5py.File(self.h5_path, "a") as hout:
@@ -160,8 +184,6 @@ class Meshing:
         print("Saved volume to h5 file.")
 
     def _reconstruct(self):
-        print("Will start phase retrieval.")
-
         data_vwu, angles_rad, shifts = self._retrieve_phase()
         init_angle = angles_rad[0]
         angles_rad = angles_rad - init_angle
@@ -170,12 +192,25 @@ class Meshing:
         proj_geom = cct.models.ProjectionGeometry.get_default_parallel()
         proj_geom.set_detector_shifts_vu(shifts)
 
-        vol_geom = cct.models.VolumeGeometry.get_default_from_data(data_vwu)
+        n_subvols = data_vwu.shape[0] // self.chunk_size
+        nz = data_vwu.shape[0]
+        volFBP = np.zeros((nz, nz, nz), dtype=np.float32)
 
-        with cct.projectors.ProjectorUncorrected(
-            vol_geom, angles_rad, prj_geom=proj_geom
-        ) as A:
-            volFBP, _ = solverFBP(A, data_vwu, iterations=10)
+        for ii in range(n_subvols):
+            zmin = ii * self.chunk_size
+            zmax = (ii + 1) * self.chunk_size
+            if zmax > data_vwu.shape[0]:
+                zmax = data_vwu.shape[0]
+
+            sub_data_vwu = data_vwu[zmin:zmax]
+            vol_geom = cct.models.VolumeGeometry.get_default_from_data(sub_data_vwu)
+
+            with cct.projectors.ProjectorUncorrected(
+                vol_geom, angles_rad, prj_geom=proj_geom
+            ) as A:
+                subvol, _ = solverFBP(A, sub_data_vwu, iterations=10)
+
+            volFBP[zmin:zmax] = subvol
 
         print("Finished reconstruction.")
 
@@ -185,14 +220,16 @@ class Meshing:
 
     def _vol_post_processing(self, volume: np.ndarray):
         print("Will start post-processing of FBP volume")
-        imin, imax = calc_color_lims(img=volume, mult=self.mult)
 
-        center_of_mass = volume_CoM(image=volume, slab_size=self.slab_size)
+        zmin = volume.shape[1] // 2 - self.slab_size // 2
+        zmax = volume.shape[1] // 2 + self.slab_size // 2
+
+        center_of_mass = volume_CoM(image=volume, init_slice=zmin, final_slice=zmax)
 
         cropped_vol = crop_around_CoM(
             image=volume, CoM=center_of_mass, xprop=self.prop, yprop=self.prop
         )
-
+        imin, imax = calc_color_lims(img=cropped_vol, mult=self.mult)
         rescaled_vol = rescale_intensity(
             image=cropped_vol, in_range=(imin, imax), out_range=np.uint8
         )
@@ -357,8 +394,13 @@ class Meshing:
             volume = imread(self.tiff_path, plugin="tifffile")
             mask = self._create_mask(volume=volume)
         elif os.path.exists(self.h5_path):
-            with h5py.File(self.h5_path, "r") as hin:
-                volFBP = hin["volFBP"][:]
+            try:
+                with h5py.File(self.h5_path, "r") as hin:
+                    volFBP = hin["volFBP"][:]
+            except Exception as e:
+                print(e, "\n", "FBP volume does not exist, will reconstruct")
+                volFBP = self._reconstruct()
+
             volume = self._vol_post_processing(volume=volFBP)
             mask = self._create_mask(volume=volume)
         else:

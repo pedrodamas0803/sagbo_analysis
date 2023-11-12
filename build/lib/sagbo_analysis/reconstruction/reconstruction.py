@@ -82,6 +82,7 @@ class Reconstruction:
             )
 
             data_vwu, angles, shifts, x0 = self._load_data(path=dataset)
+            keys = self._get_h5_keys(path=dataset)
 
             for ii in range(self.n_subvolumes):
                 zmin, zmax = self._calc_chunk_index(index=ii)
@@ -90,9 +91,10 @@ class Reconstruction:
                     data_vwu=data_vwu, zmin=zmin, zmax=zmax
                 )
 
-                keys = self._get_h5_keys(path=dataset)
-
                 if x0 == None or self.overwrite:
+                    if "volFBP" in keys:
+                        self._delete_entry(path=dataset, entry="volFBP")
+                        print("Deleted FBP volume to reconstruct it.")
                     print(f"Reconstructing chunk {ii+1}.")
                     subFBP = self._reconstruct_FBP(
                         sinograms=sub_data_vwu, angles_rad=angles, shifts=shifts
@@ -109,52 +111,62 @@ class Reconstruction:
             print(f"Recombined all subvolumes and saved to file.")
 
             if self.sirt_iter > 0:
-                if "volSIRT" in keys and not self.overwrite:
-                    print(
-                        "SIRT volume found, skipping to the next. Set overwrite flag to True if you want to reconstruct it again."
+                data_vwu, angles, shifts, x0 = self._load_data(path=dataset)
+
+                if self.overwrite and "volSIRT" in keys:
+                    self._delete_entry(path=dataset, entry="volSIRT")
+                    print("Deleted SIRT volume to reconstruct it.")
+
+                for ii in range(self.n_subvolumes):
+                    zmin, zmax = self._calc_chunk_index(index=ii)
+
+                    sub_data_vwu = self._divide_chunks(
+                        data_vwu=data_vwu, zmin=zmin, zmax=zmax
                     )
-                    continue
 
-                solverSIRT = cct.solvers.Sirt(verbose=False)
-                with cct.projectors.ProjectorUncorrected(
-                    vol_geom, angles_rad, prj_geom=proj_geom
-                ) as A:
-                    volSIRT, _ = solverSIRT(
-                        A, data_vwu, x0=volFBP, iterations=self.sirt_iter
+                    sub_x0 = self._divide_chunks_x0(x0=x0, zmin=zmin, zmax=zmax)
+
+                    print(f"Reconstructing chunk {ii+1}.")
+
+                    sub_SIRT = self._reconstruct_SIRT(
+                        sinograms=sub_data_vwu,
+                        angles_rad=angles,
+                        shifts=shifts,
+                        x0=sub_x0,
                     )
 
-                with h5py.File(dataset, "a") as hout:
-                    if "volSIRT" in hout.keys():
-                        del hout["volSIRT"]
-                    hout["volSIRT"] = volSIRT
-                print("Reconstructed SIRT volume and wrote it to file.")
+                    self._save_sub_volumes(index=ii, vol=sub_SIRT, path=dataset)
 
-                del volSIRT, solverSIRT
-
+                    print(f"Reconstructed and wrote chunk {ii+1 } to file.")
             if self.PDHG_iter > 0:
-                if "volPDHG" in keys and not self.overwrite:
-                    print(
-                        "PDHG volume found, skipping to the next. Set overwrite flag to True if you want to reconstruct it again."
+                data_vwu, angles, shifts, x0 = self._load_data(path=dataset)
+
+                if self.overwrite and "volPDHG" in keys:
+                    self._delete_entry(path=dataset, entry="volPDHG")
+                    print("Deleted PDHG volume to reconstruct it.")
+
+                for ii in range(self.n_subvolumes):
+                    zmin, zmax = self._calc_chunk_index(index=ii)
+
+                    sub_data_vwu = self._divide_chunks(
+                        data_vwu=data_vwu, zmin=zmin, zmax=zmax
                     )
-                    continue
 
-                solverPDHG = cct.solvers.PDHG(verbose=True)
-                with cct.projectors.ProjectorUncorrected(
-                    vol_geom, angles_rad, prj_geom=proj_geom
-                ) as A:
-                    volPDHG, _ = solverPDHG(
-                        A, data_vwu, x0=volFBP, iterations=self.PDHG_iter
+                    sub_x0 = self._divide_chunks_x0(x0=x0, zmin=zmin, zmax=zmax)
+
+                    print(f"Reconstructing chunk {ii+1}.")
+
+                    sub_PDHG = self._reconstruct_PDHG(
+                        sinograms=sub_data_vwu,
+                        angles_rad=angles,
+                        shifts=shifts,
+                        x0=sub_x0,
                     )
 
-                with h5py.File(dataset, "a") as hout:
-                    if "volPDHG" in hout.keys():
-                        del hout["volPDHG"]
-                    hout["volPDHG"] = volPDHG
-                print("Reconstructed PDHG volume and wrote it to file.")
+                    self._save_sub_volumes(index=ii, vol=sub_PDHG, path=dataset)
 
-                del volPDHG, solverPDHG
+                    print(f"Reconstructed and wrote chunk {ii+1} to file.")
 
-            # del data_vwu, angles_rad, shifts, volFBP, vol_geom, proj_geom
             print("Going to the next volume ! ")
 
     def _reconstruct_FBP(
@@ -278,3 +290,10 @@ class Reconstruction:
 
             for ii in range(self.n_subvolumes):
                 del h[f"vol{ii}"]
+
+    def _delete_entry(self, path: str, entry: str):
+        with h5py.File(path, "a") as h:
+            del h[entry]
+
+    def _divide_chunks_x0(self, x0: np.ndarray, zmin: int, zmax: int):
+        return x0[zmin:zmax]
