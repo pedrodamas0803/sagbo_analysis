@@ -192,35 +192,6 @@ class ProjectionAlignment:
                         f"{get_dataset_name(proc_path)} is already aligned, skipping."
                     )
 
-    # def _load_data(self, path: str, xprop=None):
-    #     is_aligned = False
-    #     with h5py.File(path, "r") as hin:
-    #         if "shifts" in hin.keys() and "cor" in hin.keys():
-    #             is_aligned = True
-    #             # FIXME -> returning NoneType even when self.overwrite is True
-    #             return None, None, is_aligned
-    #         else:
-    #             nz, ny, nx = hin["projections"].shape
-    #             ymin = (ny // 2) - (self.slab_size // 2)
-    #             ymax = (ny // 2) + (self.slab_size // 2)
-    #             if xprop is None:
-    #                 projs = hin["projections"][:, ymin:ymax, :].astype(np.float32)
-    #             else:
-    #                 xmin = int((nx // 2) - np.ceil(xprop * nx))
-    #                 xmax = int((nx // 2) + np.ceil(xprop * nx))
-    #                 if xmin % 2 != 0:
-    #                     xmin -= 1
-    #                 if xmax % 2 != 0:
-    #                     xmax += 1
-
-    #                 print("xmin and xmax are", xmin, xmax)
-    #                 projs = hin["projections"][:, ymin:ymax, xmin:xmax].astype(
-    #                     np.float32
-    #                 )
-    #             angles = hin["angles"][:]
-
-    #             return projs, angles, is_aligned
-
     def _load_data(self, path: str, xprop=None):
         is_aligned = False
         with h5py.File(path, "r") as hin:
