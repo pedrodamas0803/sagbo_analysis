@@ -202,6 +202,7 @@ class ProjectionAlignment:
                         f"{get_dataset_name(proc_path)} is already aligned, skipping."
                     )
 
+<<<<<<< HEAD
     def _load_data(self, path: str, xprop: float = None):
         """
         _load_data loads the data to be used for the tomo consistency alignment.
@@ -220,6 +221,9 @@ class ProjectionAlignment:
         angles : np.array
             array with the angles in degree
         """
+=======
+    def _load_data(self, path: str, xprop=None):
+>>>>>>> fa250dc0b5e7d968d6388d946d0740870eff851a
         is_aligned = False
         with h5py.File(path, "r") as hin:
             nz, ny, nx = hin["projections"].shape
