@@ -7,20 +7,10 @@ from dataclasses import dataclass
 class SampleInfo:
 
     """
-    Class that holds information about a sample in a SAGBO experiment for processing
+     Dataclass that holds information about the raw datasets, data processing and writes a configuration file to be used in further steps of processing.
 
-    sample_dir: str - directory where the data for the referred sample is stored,
-                      e.g.: '/data/visitor/proposal/beamline/session/sample_name'
 
-    base_name: str - text appended to the sample name to save the sequence of datasets,
-                     e.g.: '/data/visitor/proposal/beamline/session/sample_name/sample_name_{base_name}'
-
-    darks_path: str - path to the h5 file containing the darks for the sample
-
-    processing_dir: str - path to the processing directory where the data will be saved
-
-    pca_flat_file: str - path to the file containing the PCA decomposition of the flat field images for the experiment,
-                        ideally inside the 'processing_dir'
+    :return: SampleInfo
     """
 
     # acquisition information

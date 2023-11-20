@@ -53,7 +53,11 @@ class DVC_Setup:
 
         for vtk in vtks:
             dst = os.path.join(self.dvc_dir, os.path.basename(vtk))
-            os.symlink(src=vtk, dst=dst)
+            try:
+                os.symlink(src=vtk, dst=dst)
+            except FileExistsError:
+                os.remove(dst)
+                os.symlink(src=vtk, dst=dst)
 
     def _link_images(self):
         for dataset in self.processing_paths:

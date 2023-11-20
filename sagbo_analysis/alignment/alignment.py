@@ -14,18 +14,20 @@ class ProjectionAlignment:
 
     """Class to perform projection alignment based on tomographic consistency."""
 
-    def __init__(self, path: str, increment: int = 1, iterations=5, slab_size=400):
+    def __init__(self, path: str, increment: int = 1, iterations=5, slab_size=300):
         """
-        Inputs:
+        __init__ Initializes the class to perform projection alignment based on tomographic consistency.
 
-        path: str -  the path to the configuration file where the data processing information is stored.
-        increment: int - the step between each dataset to be processed among the time-series.
-        iterations: int - number of iterations for the tomographic consistency alignment. Higher tends to be better, but takes longer.
-        slab_size: int - number of slices, centered in the height of the projections, to be used for the alignment. Higher tends to be better, the data will be binned for the calculationsfor the calculations, don't choose a number too small.
-
-        The default values tend to work well, unless the error-motion to be corrected is too large, then increasing iterations might be advisable.
-
-        TODO: include a vertical offset for a given ROI.
+        Parameters
+        ----------
+        path : str
+            path to the config file containing information for the data processing of a given sample.
+        increment : int, optional
+            chooses datasets to reconstruct at each increment-th dataset, by default 1
+        iterations : int, optional
+            number of iterations for the tomographic consistency calculations, by default 5
+        slab_size : int, optional
+            number of slices around the center of the detector to be used in the tomo consistency calculations, by default 300
         """
 
         cfg = read_config_file(path=path)
@@ -58,6 +60,14 @@ class ProjectionAlignment:
         return proc_paths
 
     def _dering(self, path: str):
+        """
+        _dering perform deringing in the sinograms from the h5 file located at 'path'.
+
+        Parameters
+        ----------
+        path : str
+            absolute path of the file containing the dataset to be deringed.
+        """
         t0 = time.time()
         if self.dering:
             with h5py.File(path, "r") as hin:
@@ -192,36 +202,24 @@ class ProjectionAlignment:
                         f"{get_dataset_name(proc_path)} is already aligned, skipping."
                     )
 
-    # def _load_data(self, path: str, xprop=None):
-    #     is_aligned = False
-    #     with h5py.File(path, "r") as hin:
-    #         if "shifts" in hin.keys() and "cor" in hin.keys():
-    #             is_aligned = True
-    #             # FIXME -> returning NoneType even when self.overwrite is True
-    #             return None, None, is_aligned
-    #         else:
-    #             nz, ny, nx = hin["projections"].shape
-    #             ymin = (ny // 2) - (self.slab_size // 2)
-    #             ymax = (ny // 2) + (self.slab_size // 2)
-    #             if xprop is None:
-    #                 projs = hin["projections"][:, ymin:ymax, :].astype(np.float32)
-    #             else:
-    #                 xmin = int((nx // 2) - np.ceil(xprop * nx))
-    #                 xmax = int((nx // 2) + np.ceil(xprop * nx))
-    #                 if xmin % 2 != 0:
-    #                     xmin -= 1
-    #                 if xmax % 2 != 0:
-    #                     xmax += 1
+    def _load_data(self, path: str, xprop: float = None):
+        """
+        _load_data loads the data to be used for the tomo consistency alignment.
 
-    #                 print("xmin and xmax are", xmin, xmax)
-    #                 projs = hin["projections"][:, ymin:ymax, xmin:xmax].astype(
-    #                     np.float32
-    #                 )
-    #             angles = hin["angles"][:]
+        Parameters
+        ----------
+        path : str
+            absolute path to the h5 file containing the data to be used.
+        xprop : float, optional
+            number between 0 and 1 to take a fraction of the horizontal field of view centered on the center of the detector width, tends to speed up the alignment, by default None
 
-    #             return projs, angles, is_aligned
-
-    def _load_data(self, path: str, xprop=None):
+        Returns
+        -------
+        projections : np.ndarray
+            projections to be used in the reconstruction
+        angles : np.array
+            array with the angles in degree
+        """
         is_aligned = False
         with h5py.File(path, "r") as hin:
             nz, ny, nx = hin["projections"].shape

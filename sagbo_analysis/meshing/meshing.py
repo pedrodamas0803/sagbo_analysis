@@ -29,12 +29,9 @@ from ..utils import calc_color_lims
 
 class Meshing:
     """
-     Class to perform automatic meshing of a volume.
-     It will gather the projections from the reference volume, apply a Paganin filter and reconstruct a volume. It then creates a mask that is used to run a marching cubes algorithm and subsequent meshing of the volume.
+    Class to perform automatic meshing of a volume.
+    It will gather the projections from the reference volume, apply a Paganin filter and reconstruct a volume. It then creates a mask that is used to run a marching cubes algorithm and subsequent meshing of the volume.
 
-
-
-    _extended_summary_
     """
 
     def __init__(
@@ -154,12 +151,7 @@ class Meshing:
                 f"Applied phase retrieval on the stack of projections in {time.time()-t0}."
             )
             angles_rad = np.deg2rad(angles)
-            self._save_projections(
-                projs=ret_projs,
-                angles=angles_rad,
-                shifts=shifts,
-                is_retrieved=is_retrieved,
-            )
+            self._save_projections(projs=ret_projs, angles=angles_rad, shifts=shifts)
             return np.rollaxis(ret_projs, 1, 0), angles_rad, shifts
         else:
             return np.rollaxis(projs, 1, 0), angles, shifts
