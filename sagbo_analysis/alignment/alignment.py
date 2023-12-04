@@ -114,13 +114,17 @@ class ProjectionAlignment:
                     verbose=False,
                 )
 
-                pre_shifts_v = optim.pre_align_shifts_v()
-                pre_shifts_u, cor = optim.pre_align_shifts_u(
-                    background=0.1, robust=True
-                )
+                try:
+                    pre_shifts_v = optim.pre_align_shifts_v()
+                    pre_shifts_u, cor = optim.pre_align_shifts_u(
+                        background=0.1, robust=True
+                    )
 
-                pre_shifts_vu = np.stack([pre_shifts_v, pre_shifts_u + cor], axis=0)
-                print(pre_shifts_vu)
+                    pre_shifts_vu = np.stack([pre_shifts_v, pre_shifts_u + cor], axis=0)
+                    print(pre_shifts_vu)
+                except Exception as e:
+                    print(e)
+                    continue
 
                 cor2 = optim.pre_cor_u_360()
                 print(f"Center-of-rotation found using 360 redundancy: {cor2}")

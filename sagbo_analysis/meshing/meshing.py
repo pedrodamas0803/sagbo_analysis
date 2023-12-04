@@ -29,12 +29,9 @@ from ..utils import calc_color_lims
 
 class Meshing:
     """
-     Class to perform automatic meshing of a volume.
-     It will gather the projections from the reference volume, apply a Paganin filter and reconstruct a volume. It then creates a mask that is used to run a marching cubes algorithm and subsequent meshing of the volume.
+    Class to perform automatic meshing of a volume.
+    It will gather the projections from the reference volume, apply a Paganin filter and reconstruct a volume. It then creates a mask that is used to run a marching cubes algorithm and subsequent meshing of the volume.
 
-
-
-    _extended_summary_
     """
 
     def __init__(
@@ -50,6 +47,32 @@ class Meshing:
         struct_size: tuple = (5, 5, 5),
         chunk_size: int = 512,
     ):
+        """
+        __init__ initializes the class to perform meshing on the reference volume for a data-series.
+
+        Parameters
+        ----------
+        path : str
+            path to the configuration file.
+        delta_beta : int, optional
+            delta/beta value for the Paganin phase retrieval, by default 60
+        mesh_size : int, optional
+            mesh characteristc length, by default 12
+        reference_volume : int, optional
+            index of the volume to be used as reference volume, by default 0
+        mult : float, optional
+            selects how narrow the gray level distribution around the highest peak in the histogram in the form peak +/- mult/2 , by default 1
+        slab_size : int, optional
+            number of slices to be used for center of mass calculations , by default 350
+        prop : float, optional
+            fraction of the detector width used to cut the volume in post-processing, by default 0.5
+        iters : int, optional
+            number of iterations for binary erosion of the volume mask where the mesh will be calculated, by default 5
+        struct_size : tuple, optional
+            size of the structuring volume used in the marching cubes algorithm to determine the surface mesh of the reference volume, by default (5, 5, 5)
+        chunk_size : int, optional
+            number of slices to be reconstructed at once in a chunked reconstruction, by default 512
+        """
         cfg = read_config_file(path=path)
 
         self.cfg_file = path
@@ -111,9 +134,11 @@ class Meshing:
         print("Will get projections from file.")
 
         if os.path.exists(self.h5_path):
-            # print("I got here.")
             with h5py.File(self.h5_path, "a") as hin:
                 if "pag_proj" in hin.keys():
+                    print(
+                        "Phase retrieved projections already exist, loading from h5 file."
+                    )
                     projs = hin["pag_proj"][:].astype(np.float32)
                     angles = hin["angles"][:]
                     shifts = hin["shifts"][:]
@@ -121,6 +146,7 @@ class Meshing:
             return projs, angles, shifts, True
         else:
             with h5py.File(self.reference_data_path, "r") as hin:
+                print("Loaded projections to run phase retrieval algorithm.")
                 projs = hin["projections"][:].astype(np.float32)
                 angles = hin["angles"][:].astype(np.float32)
                 shifts = hin["shifts"][:]
@@ -137,6 +163,9 @@ class Meshing:
 
         t0 = time.time()
         if not is_retrieved:
+            print(
+                f"Will perform phase retrieval with pixel size {self.pixel_size_m:4} m, propagation distance {self.distance} m, at {self.energy} keV and delta/beta {self.delta_beta}. "
+            )
             paganin = PaganinPhaseRetrieval(
                 projs[0].shape,
                 distance=self.distance,
