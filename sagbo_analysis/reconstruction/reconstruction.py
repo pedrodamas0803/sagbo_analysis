@@ -101,16 +101,19 @@ class Reconstruction:
         """
         run_reconstruction runs the reconstruction using the selected algorithm for all the specified datasets in series. takes relatively long time.
 
-        _extended_summary_
         """
 
         for dataset in self.processing_paths:
+            keys = self._get_h5_keys(path=dataset)
+            if not self._is_valid_scan(h5_keys=keys):
+                print("Your scan is not valid, skipping to the next.")
+                continue
+
             print(
                 f"Will reconstruct {get_dataset_name(dataset)} in {self.n_subvolumes} chunks."
             )
 
             data_vwu, angles, shifts, x0 = self._load_data(path=dataset)
-            keys = self._get_h5_keys(path=dataset)
 
             for ii in range(self.n_subvolumes):
                 zmin, zmax = self._calc_chunk_index(index=ii)
@@ -473,8 +476,6 @@ class Reconstruction:
         """
         _delete_entry deletes the 'entry' from the h5 file located at 'path'.
 
-
-
         Parameters
         ----------
         path : str
@@ -498,3 +499,13 @@ class Reconstruction:
         subvolume; np.ndarray; x0[zmin:zmax]
         """
         return x0[zmin:zmax]
+
+    def _is_valid_scan(self, h5_keys: list):
+        if (
+            ("shifts" in h5_keys)
+            and ("angles" in h5_keys)
+            and ("projections" in h5_keys)
+        ):
+            return True
+        else:
+            return False
