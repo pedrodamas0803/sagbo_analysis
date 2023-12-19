@@ -32,7 +32,10 @@ class ProjectionAlignment:
 
         self.processing_dir = cfg["processing_dir"]
         self.datasets = cfg["datasets"]
-        self.dering = cfg["dering"]
+        self.dering = False
+        if cfg["dering"] == "True":
+            self.dering = True
+
         self.overwrite = False
         if cfg["overwrite"] == "True":
             self.overwrite = True
@@ -88,21 +91,25 @@ class ProjectionAlignment:
         """Method to run the alignment for the selected datasets."""
 
         for proc_path in self.processing_paths:
-            self._dering(proc_path)
+            if self.dering:
+                self._dering(proc_path)
 
             print(f"Will align {get_dataset_name(proc_path)}.")
 
-            projs, angles, is_aligned = self._load_data(path=proc_path, xprop=xprop)
+            projs, angles_rad, is_aligned, is_return = self._load_data(
+                path=proc_path, xprop=xprop
+            )
 
-            # dirty fix
-            # is_aligned = False
+            if is_return:
+                self._update_h5(path=proc_path)
 
             if not is_aligned:
                 projs_bin = binning(projs)
 
                 del projs
 
-                angles_rad = np.deg2rad(angles)
+                # ang0 = angles[0]
+                # angles_rad = np.deg2rad(angles) - np.deg2rad(ang0)
 
                 data_vwu = np.rollaxis(projs_bin, 1, 0)
 
@@ -135,25 +142,13 @@ class ProjectionAlignment:
 
                 print(shifts)
 
-                with h5py.File(proc_path, "a") as hout:
-                    if "cor" in hout.keys():
-                        del hout["cor"]
-                        hout["cor"] = 2 * cor2
-                    else:
-                        hout["cor"] = 2 * cor2
-
-                    if "shifts" in hout.keys():
-                        del hout["shifts"]
-                    else:
-                        hout["shifts"] = 2 * shifts
+                self._save_shifts(path=proc_path, shifts=2 * shifts, cor=2 * cor2)
 
             else:
                 if self.overwrite:
                     projs_bin = binning(projs)
 
                     del projs
-
-                    angles_rad = np.deg2rad(angles)
 
                     data_vwu = np.rollaxis(projs_bin, 1, 0)
 
@@ -180,17 +175,7 @@ class ProjectionAlignment:
                         cor2, iterations=self.iterations
                     )
 
-                    with h5py.File(proc_path, "a") as hout:
-                        if "cor" in hout.keys():
-                            del hout["cor"]
-                            hout["cor"] = 2 * cor2
-                        else:
-                            hout["cor"] = 2 * cor2
-
-                        if "shifts" in hout.keys():
-                            del hout["shifts"]
-                        else:
-                            hout["shifts"] = 2 * shifts
+                    self._save_shifts(path=proc_path, shifts=2 * shifts, cor=2 * cor2)
                 else:
                     print(
                         f"{get_dataset_name(proc_path)} is already aligned, skipping."
@@ -198,7 +183,10 @@ class ProjectionAlignment:
 
     def _load_data(self, path: str, xprop=None):
         is_aligned = False
+        is_return = False
         with h5py.File(path, "r") as hin:
+            if "shifts" in hin.keys():
+                is_aligned = True
             nz, ny, nx = hin["projections"].shape
             ymin = (ny // 2) - (self.slab_size // 2)
             ymax = (ny // 2) + (self.slab_size // 2)
@@ -216,4 +204,53 @@ class ProjectionAlignment:
                 projs = hin["projections"][:, ymin:ymax, xmin:xmax].astype(np.float32)
             angles = hin["angles"][:]
 
-            return projs, angles, is_aligned
+        if self._is_return_scan(angles=angles):
+            is_return = True
+            projs = np.flip(projs, axis=(0, 1))
+            angles = np.flip(angles, axis=0)
+
+        return projs, np.deg2rad(angles), is_aligned, is_return
+
+    def _is_return_scan(self, angles: np.array):
+        """
+        _is_return_scan determines if a scan was acquired in the reverse order (high to low angles) based on the rotation motor positions array.
+
+        Parameters
+        ----------
+        angles : np.array
+            array of angles fetched from the raw data h5 file containing the positions of the rotation motor.
+
+        Returns
+        -------
+        bool
+            returns True if the last angle is bigger than the first angle in the array.
+        """
+        if angles[0] > angles[-1]:
+            return True
+        else:
+            return False
+
+    def _save_shifts(
+        self,
+        path: str,
+        shifts: np.ndarray,
+        cor: float,
+    ):
+        with h5py.File(path, "a") as hout:
+            if not ("cor" in hout.keys()):
+                hout["cor"] = cor
+            else:
+                hout["cor"][...] = cor
+            if not ("shifts" in hout.keys()):
+                hout["shifts"] = shifts
+            else:
+                hout["shifts"][...] = shifts
+
+    def _update_h5(self, path: str):
+        with h5py.File(path, "a") as hout:
+            projs = hout["projections"][:]
+            angles = hout["angles"][:]
+
+            hout["projections"][...] = np.flip(projs, axis=0)
+            hout["angles"][...] = np.flip(angles, axis=0)
+            print("Updated reverse scan !")

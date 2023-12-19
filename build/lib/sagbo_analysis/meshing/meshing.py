@@ -183,12 +183,7 @@ class Meshing:
                 f"Applied phase retrieval on the stack of projections in {time.time()-t0}."
             )
             angles_rad = np.deg2rad(angles)
-            self._save_projections(
-                projs=ret_projs,
-                angles=angles_rad,
-                shifts=shifts,
-                is_retrieved=is_retrieved,
-            )
+            self._save_projections(projs=ret_projs, angles=angles_rad, shifts=shifts)
             return np.rollaxis(ret_projs, 1, 0), angles_rad, shifts
         else:
             return np.rollaxis(projs, 1, 0), angles, shifts

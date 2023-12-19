@@ -48,7 +48,12 @@ class PostProcessing:
     def run_postprocessing(self):
         for dataset in self.processing_paths:
             print(f"Processing {dataset}.")
-            vol = self._load_volume(path=dataset)
+            try:
+                vol = self._load_volume(path=dataset)
+            except Exception as e:
+                print(e)
+                print("There was a problem loading your volume, skipping to the next.")
+                continue
 
             center_of_mass = volume_CoM(vol)
 

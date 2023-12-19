@@ -122,10 +122,12 @@ class Reconstruction:
                     data_vwu=data_vwu, zmin=zmin, zmax=zmax
                 )
 
-                if x0 == None or self.overwrite:
-                    if "volFBP" in keys:
-                        self._delete_entry(path=dataset, entry="volFBP")
-                        print("Deleted FBP volume to reconstruct it.")
+                subFBP = None
+
+                if x0 is None or self.overwrite:
+                    # if "volFBP" in keys:
+                    #     self._delete_entry(path=dataset, entry="volFBP")
+                    #     print("Deleted FBP volume to reconstruct it.")
                     print(f"Reconstructing chunk {ii+1}.")
                     subFBP = self._reconstruct_FBP(
                         sinograms=sub_data_vwu, angles_rad=angles, shifts=shifts
@@ -136,10 +138,8 @@ class Reconstruction:
 
                 else:
                     break
-
-            self._combine_subvolumes(path=dataset)
-
-            print(f"Recombined all subvolumes and saved to file.")
+            if subFBP is not None:
+                self._combine_subvolumes(path=dataset)
 
             if self.sirt_iter > 0:
                 data_vwu, angles, shifts, x0 = self._load_data(path=dataset)
@@ -157,6 +157,8 @@ class Reconstruction:
 
                     sub_x0 = self._divide_chunks_x0(x0=x0, zmin=zmin, zmax=zmax)
 
+                    sub_SIRT = None
+
                     print(f"Reconstructing chunk {ii+1}.")
 
                     sub_SIRT = self._reconstruct_SIRT(
@@ -166,9 +168,16 @@ class Reconstruction:
                         x0=sub_x0,
                     )
 
-                    self._save_sub_volumes(index=ii, vol=sub_SIRT, path=dataset)
+                    self._save_sub_volumes(
+                        index=ii, vol=sub_SIRT, path=dataset, entry="volSIRT"
+                    )
 
-                    print(f"Reconstructed and wrote chunk {ii+1 } to file.")
+                    print(
+                        f"Reconstructed volume using SIRT and wrote chunk {ii+1 } to file."
+                    )
+                if sub_SIRT is not None:
+                    self._combine_subvolumes(path=dataset, entry="volSIRT")
+
             if self.PDHG_iter > 0:
                 data_vwu, angles, shifts, x0 = self._load_data(path=dataset)
 
@@ -185,6 +194,7 @@ class Reconstruction:
 
                     sub_x0 = self._divide_chunks_x0(x0=x0, zmin=zmin, zmax=zmax)
 
+                    sub_PDHG = None
                     print(f"Reconstructing chunk {ii+1}.")
 
                     sub_PDHG = self._reconstruct_PDHG(
@@ -194,9 +204,15 @@ class Reconstruction:
                         x0=sub_x0,
                     )
 
-                    self._save_sub_volumes(index=ii, vol=sub_PDHG, path=dataset)
+                    self._save_sub_volumes(
+                        index=ii, vol=sub_PDHG, path=dataset, entry="volPDHG"
+                    )
 
-                    print(f"Reconstructed and wrote chunk {ii+1} to file.")
+                    print(
+                        f"Reconstructed volume using PDHG and wrote chunk {ii+1} to file."
+                    )
+                if sub_PDHG is not None:
+                    self._combine_subvolumes(path=dataset, entry="volPDHG")
 
             print("Going to the next volume ! ")
 
@@ -220,8 +236,6 @@ class Reconstruction:
         volFBP : np.ndarray
             reconstructed volume
         """
-        ang0 = angles_rad[0]
-        angles_rad = angles_rad - ang0
 
         solverFBP = cct.solvers.FBP(verbose=False, fbp_filter="hann")
         vol_geom = cct.models.VolumeGeometry.get_default_from_data(sinograms)
@@ -337,7 +351,7 @@ class Reconstruction:
         x0 : None | np.ndarray
             None if there is no FBP volume; the FBP volume if exists.
         """
-        with h5py.File(path, "a") as hin:  # dangerous
+        with h5py.File(path, "r") as hin:  # dangerous
             x0 = None
             if self.PDHG_iter > 0 or self.sirt_iter > 0:
                 try:
@@ -348,11 +362,6 @@ class Reconstruction:
             angles = hin["angles"][:]
             projs = hin["projections"][:].astype(np.float32)
             shifts = hin["shifts"][:]
-
-            if self._is_return_scan(angles=angles):
-                projs = np.flip(projs, axis=0)
-                angles = np.flip(angles, axis=0)
-                shifts = np.flip(shifts, axis=0)
 
         return np.rollaxis(projs, 1, 0), np.deg2rad(angles), shifts, x0
 
@@ -373,25 +382,6 @@ class Reconstruction:
         with h5py.File(path, "r") as hin:
             keys = list(hin.keys())
         return keys
-
-    def _is_return_scan(self, angles: np.array):
-        """
-        _is_return_scan determines if a scan was acquired in the reverse order (high to low angles) based on the rotation motor positions array.
-
-        Parameters
-        ----------
-        angles : np.array
-            array of angles fetched from the raw data h5 file containing the positions of the rotation motor.
-
-        Returns
-        -------
-        bool
-            returns True if the last angle is bigger than the first angle in the array.
-        """
-        if angles[0] > angles[-1]:
-            return False
-        else:
-            return True
 
     def _calc_chunk_index(self, index: int):
         """
@@ -435,7 +425,7 @@ class Reconstruction:
         """
         return data_vwu[zmin:zmax]
 
-    def _save_sub_volumes(self, index: int, vol: np.ndarray, path: str):
+    def _save_sub_volumes(self, index: int, vol: np.ndarray, path: str, entry="volFBP"):
         """
         _save_sub_volumes save the recosntructed subvolumes from the chunked reconstructed volume to the specified h5 file.
 
@@ -449,9 +439,12 @@ class Reconstruction:
             absolute path to the h5 file where the data should be saved.
         """
         with h5py.File(path, "a") as hout:
-            hout[f"vol{index}"] = vol
+            hentry = f"{entry}{index}"
+            if hentry in hout.keys():
+                del hout[hentry]
+            hout[hentry] = vol
 
-    def _combine_subvolumes(self, path: str):
+    def _combine_subvolumes(self, path: str, entry: str = "volFBP"):
         """
         _combine_subvolumes combines the saved subvolumes from the chunked reconstruction in one final volume.
 
@@ -461,16 +454,20 @@ class Reconstruction:
             absolute path to the h5 file where the subvolumes are stored.
         """
         with h5py.File(path, "a") as h:
+            if entry in h.keys():
+                del h[entry]
             for ii in range(self.n_subvolumes):
                 if ii == 0:
-                    vol = h[f"vol{ii}"][:]
+                    vol = h[f"{entry}{ii}"][:]
                 else:
-                    vol = np.concatenate((vol, h[f"vol{ii}"][:]))
+                    vol = np.concatenate((vol, h[f"{entry}{ii}"][:]))
 
-            h["volFBP"] = vol
+            h[entry] = vol
 
             for ii in range(self.n_subvolumes):
-                del h[f"vol{ii}"]
+                del h[f"{entry}{ii}"]
+
+            print(f"Recombined all subvolumes and saved to file.")
 
     def _delete_entry(self, path: str, entry: str):
         """
