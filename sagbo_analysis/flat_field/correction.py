@@ -62,11 +62,14 @@ class FlatFieldCorrection:
 
         TODO: make it write the script to be launched by sbatch in several machines.
         """
-
-        pca = PCAFlatFromFile(path=self.pca_flat_file)
-
-        if radius is not None:
-            mask = sagbo_mask(radius, prop, pca.mean.shape)
+        if self._check_components():
+            pca = PCAFlatFromFile(path=self.pca_flat_file)
+            if radius is not None:
+                mask = sagbo_mask(radius, prop, pca.mean.shape)
+        else:
+            print(
+                "No PCA decomposition found, defaulting to regular flat-field correction."
+            )
 
         if self._check_components():
             for selected_dataset, saving_path in zip(

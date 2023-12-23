@@ -19,7 +19,7 @@ class SampleInfo:
     darks_path: str
     processing_dir: str
     flats_path: str
-    base_add: str
+    base_name_complement: str = ""
     overwrite: bool = True
 
     flats_entry: str = "/1.1/measurement/marana"

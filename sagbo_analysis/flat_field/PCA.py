@@ -65,14 +65,13 @@ class DecompositionPCA:
     def run_decomposition(self, nsigma=3):
         """Runs the decomposition and saves it to the path given in the configuration file."""
 
-        pca = PCAFlatImages(self.flats, self.darks)
-        pca.makeframes(nsigma=nsigma)
-        pca.setdark()
-        pca.setmask()
-        if self.mask is not None:
-            pca.update_mask(self.mask)
-
         try:
+            pca = PCAFlatImages(self.flats, self.darks)
+            pca.makeframes(nsigma=nsigma)
+            pca.setdark()
+            pca.setmask()
+            if self.mask is not None:
+                pca.update_mask(self.mask)
             pca.save_decomposition(path=self.pca_flat_file)
         except Exception as e:
             print(e)
@@ -81,5 +80,5 @@ class DecompositionPCA:
             )
 
             with h5py.File(self.pca_flat_file, "a") as hout:
-                hout["mean"][...] = np.mean(self.flats, axis=0)
-                hout["dark"][...] = np.median(self.darks, axis=0)
+                hout["mean"] = np.mean(self.flats, axis=0)
+                hout["dark"] = np.median(self.darks, axis=0)

@@ -1,4 +1,5 @@
 import os
+import concurrent.futures
 
 import h5py
 import numpy as np
@@ -61,44 +62,69 @@ class FlatFieldCorrection:
 
         TODO: make it write the script to be launched by sbatch in several machines.
         """
+        if self._check_components():
+            pca = PCAFlatFromFile(path=self.pca_flat_file)
+            if radius is not None:
+                mask = sagbo_mask(radius, prop, pca.mean.shape)
+        else:
+            print(
+                "No PCA decomposition found, defaulting to regular flat-field correction."
+            )
 
-        pca = PCAFlatFromFile(path=self.pca_flat_file)
+        if self._check_components():
+            for selected_dataset, saving_path in zip(
+                self.selected_datasets, self.saving_paths
+            ):
+                assert selected_dataset != saving_path
 
-        if radius is not None:
-            mask = sagbo_mask(radius, prop, pca.mean.shape)
+                if not self._check_corrected_projections(saving_path):
+                    print(f"Will correct {get_dataset_name(selected_dataset)}.")
 
-        for selected_dataset, saving_path in zip(
-            self.selected_datasets, self.saving_paths
-        ):
-            assert selected_dataset != saving_path
+                    projections, angles = self._load_proj_stack(selected_dataset)
 
-            if not self._check_corrected_projections(saving_path):
-                print(f"Will correct {get_dataset_name(selected_dataset)}.")
+                    if radius is not None:
+                        pca.correct_stack(projections, save_path=saving_path, mask=mask)
+                    else:
+                        pca.correct_stack(
+                            projections, save_path=saving_path, xprop=prop
+                        )
 
-                projections, angles = self._load_proj_stack(selected_dataset)
+                    with h5py.File(saving_path, "a") as hout:
+                        hout["angles"] = angles
+                elif self.overwrite:
+                    print(
+                        f"Corrected images were found for {get_dataset_name(saving_path)}, overwriting."
+                    )
+                    projections, angles = self._load_proj_stack(selected_dataset)
 
-                if radius is not None:
-                    pca.correct_stack(projections, save_path=saving_path, mask=mask)
+                    if radius is not None:
+                        pca.correct_stack(projections, save_path=saving_path, mask=mask)
+                    else:
+                        pca.correct_stack(
+                            projections, save_path=saving_path, xprop=prop
+                        )
+
+                    with h5py.File(saving_path, "a") as hout:
+                        hout["angles"] = angles
                 else:
-                    pca.correct_stack(projections, save_path=saving_path, xprop=prop)
+                    continue
+        else:
+            for selected_dataset, saving_path in zip(
+                self.selected_datasets, self.saving_paths
+            ):
+                if not self._check_corrected_projections(saving_path):
+                    projections, angles = self._load_proj_stack(selected_dataset)
+                    flat, dark = self._load_flats_darks()
 
-                with h5py.File(saving_path, "a") as hout:
-                    hout["angles"] = angles
-            elif self.overwrite:
-                print(
-                    f"Corrected images were found for {get_dataset_name(saving_path)}, overwriting."
-                )
-                projections, angles = self._load_proj_stack(selected_dataset)
+                    projections -= dark
+                    flat -= dark
 
-                if radius is not None:
-                    pca.correct_stack(projections, save_path=saving_path, mask=mask)
-                else:
-                    pca.correct_stack(projections, save_path=saving_path, xprop=prop)
+                    corr_projs = -np.log(projections / flat)
 
-                with h5py.File(saving_path, "a") as hout:
-                    hout["angles"] = angles
-            else:
-                continue
+                    with h5py.File(saving_path, "a") as hout:
+                        hout["projections"] = corr_projs
+                        hout["angles"] = angles
+                    print(f"Corrected dataset and saved to {saving_path}.")
 
     def _load_proj_stack(self, path: str):
         with h5py.File(path, "r") as hin:
@@ -117,3 +143,33 @@ class FlatFieldCorrection:
                     return False
         else:
             return False
+
+    def _check_components(self):
+        with h5py.File(self.pca_flat_file, "r") as hin:
+            keys = list(hin.keys())
+
+        if "p_components" in keys:
+            return True
+        else:
+            return False
+
+    def _load_flats_darks(self):
+        with h5py.File(self.pca_flat_file, "r") as hin:
+            flat = hin["mean"][:].astype(np.float32)
+            dark = hin["dark"][:].astype(np.float32)
+
+        return flat, dark
+
+    # def _regular_flat_correction_par(self, projections: np.ndarray):
+    #     def flat_correction(proj: np.ndarray, flat: np.ndarray, dark: np.ndarray):
+    #         proj -= dark
+    #         flat -= dark
+    #         return -np.log(proj / flat)
+
+    #     corr_projs = np.zeros_like(projections)
+
+    #     with concurrent.futures.ProcessPoolExecutor() as pool:
+    #         for ii, proj in pool.map(flat_correction, projections):
+    #             corr_projs[ii] = proj
+
+    #     return corr_projs
