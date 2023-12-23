@@ -19,6 +19,7 @@ class SampleInfo:
     darks_path: str
     processing_dir: str
     flats_path: str
+    base_add: str
     overwrite: bool = True
 
     flats_entry: str = "/1.1/measurement/marana"
@@ -54,7 +55,9 @@ class SampleInfo:
     def datasets(self):
         datasets = []
         for dataset in os.listdir(self.sample_dir):
-            if self.sample_name in dataset and self.base_name in dataset:
+            if self.sample_name in dataset and (
+                self.base_name in dataset and self.base_add in dataset
+            ):
                 datasets.append(f"{self.sample_dir}{dataset}/{dataset}.h5")
         datasets.sort()
         return {f"path_{ii+1}": dataset for ii, dataset in enumerate(datasets)}
