@@ -22,14 +22,11 @@ class DecompositionPCA:
         self.darks_path = cfg["darks_path"]
         self.flats_path = cfg["flats_path"]
         self.pca_flat_file = cfg["pca_flat_file"]
-        # self.processing_dir = cfg['processing_dir']
         self.flats_entry = cfg["flats_entry"]
         self.darks_entry = cfg["darks_entry"]
 
         if mask != None:
             self.mask = mask
-
-        # self.datasets = cfg['datasets']
 
     @property
     def flats(self):
@@ -75,4 +72,14 @@ class DecompositionPCA:
         if self.mask is not None:
             pca.update_mask(self.mask)
 
-        pca.save_decomposition(path=self.pca_flat_file)
+        try:
+            pca.save_decomposition(path=self.pca_flat_file)
+        except Exception as e:
+            print(e)
+            print(
+                "Something went wrong with you PCA decomposition. Defaulting to regular flat-field correction."
+            )
+
+            with h5py.File(self.pca_flat_file, "a") as hout:
+                hout["mean"][...] = np.mean(self.flats, axis=0)
+                hout["dark"][...] = np.median(self.darks, axis=0)
