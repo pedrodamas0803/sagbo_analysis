@@ -56,7 +56,7 @@ class SampleInfo:
         datasets = []
         for dataset in os.listdir(self.sample_dir):
             if self.sample_name in dataset and (
-                self.base_name in dataset and self.base_add in dataset
+                self.base_name in dataset and self.base_name_complement in dataset
             ):
                 datasets.append(f"{self.sample_dir}{dataset}/{dataset}.h5")
         datasets.sort()
