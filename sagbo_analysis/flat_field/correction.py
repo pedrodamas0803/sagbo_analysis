@@ -80,7 +80,12 @@ class FlatFieldCorrection:
                 if not self._check_corrected_projections(saving_path):
                     print(f"Will correct {get_dataset_name(selected_dataset)}.")
 
-                    projections, angles = self._load_proj_stack(selected_dataset)
+                    try:
+                        projections, angles = self._load_proj_stack(selected_dataset)
+                    except Exception as e:
+                        print(e)
+                        print('Your scan was probably broken, going to the next. ')
+                        continue
 
                     if radius is not None:
                         pca.correct_stack(projections, save_path=saving_path, mask=mask)
@@ -95,7 +100,12 @@ class FlatFieldCorrection:
                     print(
                         f"Corrected images were found for {get_dataset_name(saving_path)}, overwriting."
                     )
-                    projections, angles = self._load_proj_stack(selected_dataset)
+                    try:
+                        projections, angles = self._load_proj_stack(selected_dataset)
+                    except Exception as e:
+                        print(e)
+                        print('Your scan was probably broken, going to the next. ')
+                        continue
 
                     if radius is not None:
                         pca.correct_stack(projections, save_path=saving_path, mask=mask)
@@ -113,7 +123,13 @@ class FlatFieldCorrection:
                 self.selected_datasets, self.saving_paths
             ):
                 if not self._check_corrected_projections(saving_path):
-                    projections, angles = self._load_proj_stack(selected_dataset)
+                    try:                    
+                        projections, angles = self._load_proj_stack(selected_dataset)
+                    except Exception as e:
+                        print(e)
+                        print('Your scan was probably broken, going to the next. ')
+                        continue
+
                     flat, dark = self._load_flats_darks()
 
                     projections -= dark

@@ -92,13 +92,22 @@ class ProjectionAlignment:
 
         for proc_path in self.processing_paths:
             if self.dering:
-                self._dering(proc_path)
+                try:
+                    self._dering(proc_path)
+                except Exception as e:
+                    print(e)
+                    print('Something went wrong, continuing.')
 
             print(f"Will align {get_dataset_name(proc_path)}.")
 
-            projs, angles_rad, is_aligned, is_return = self._load_data(
+            try:
+                projs, angles_rad, is_aligned, is_return = self._load_data(
                 path=proc_path, xprop=xprop
             )
+            except Exception as e:
+                print(e)
+                print('Tour scan is probably broken, going to the next.')
+                continue
 
             if is_return:
                 self._update_h5(path=proc_path)

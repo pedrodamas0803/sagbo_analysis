@@ -19,7 +19,7 @@ class PostProcessing:
         self.increment = increment
         self.prop = prop
         self.mult = mult
-        self.min32, self.max32 = self._calc_lims_32bit()
+        # self.min32, self.max32 = self._calc_lims_32bit()
 
     @property
     def selected_datasets(self):
@@ -38,12 +38,12 @@ class PostProcessing:
             proc_paths.append(path_to_process)
         return proc_paths
 
-    def _calc_lims_32bit(self):
-        vol = self._load_volume(path=self.processing_paths[0])
+    # def _calc_lims_32bit(self):
+    #     vol = self._load_volume(path=self.processing_paths[0])
 
-        imin, imax = calc_color_lims(vol, mult=self.mult)
+    #     imin, imax = calc_color_lims(vol, mult=self.mult)
 
-        return imin, imax
+    #     return imin, imax
 
     def run_postprocessing(self):
         for dataset in self.processing_paths:
@@ -61,13 +61,19 @@ class PostProcessing:
                 vol, center_of_mass, xprop=self.prop, yprop=self.prop
             )
 
+            imin, imax = calc_color_lims(cropped_vol, mult=self.mult)
+
             rescaled_img = rescale_intensity(
-                cropped_vol, in_range=(self.min32, self.max32), out_range="uint8"
+                cropped_vol, in_range=(imin, imax), out_range="uint8"
             )
+
+            # rotate to match DCT/sample env reconstruction
+
+            rotated_img = np.rot90(rescaled_img, k=3, axes=(1, 2))
 
             save_path = build_tiff_path(dataset)
 
-            imsave(save_path, rescaled_img, plugin="tifffile", check_contrast=False)
+            imsave(save_path, rotated_img, plugin="tifffile", check_contrast=False)
 
     def _load_volume(self, path: str):
         with h5py.File(path, "r") as hin:

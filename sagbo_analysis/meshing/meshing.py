@@ -8,6 +8,7 @@ import gmsh
 
 import numpy as np
 import h5py
+import hdf5plugin
 import corrct as cct
 import scipy.ndimage as ndi
 from nabu.preproc.phase import PaganinPhaseRetrieval
@@ -142,7 +143,7 @@ class Meshing:
                     projs = hin["pag_proj"][:].astype(np.float32)
                     angles = hin["angles"][:]
                     shifts = hin["shifts"][:]
-                hin.close()
+                # hin.close()
             return projs, angles, shifts, True
         else:
             with h5py.File(self.reference_data_path, "r") as hin:
@@ -150,7 +151,7 @@ class Meshing:
                 projs = hin["projections"][:].astype(np.float32)
                 angles = hin["angles"][:].astype(np.float32)
                 shifts = hin["shifts"][:]
-                hin.close()
+                # hin.close()
             return projs, angles, shifts, False
 
     def _check_mesh_dir(self):
@@ -191,7 +192,7 @@ class Meshing:
     def _save_projections(
         self,
         projs: np.ndarray,
-        angles: np.array,
+        angles: np.ndarray,
         shifts: np.ndarray,
     ):
         with h5py.File(self.h5_path, "a") as hout:
@@ -257,8 +258,11 @@ class Meshing:
         rescaled_vol = rescale_intensity(
             image=cropped_vol, in_range=(imin, imax), out_range=np.uint8
         )
+        # rotate to match DCT/sample env reconstruction
 
-        imsave(self.tiff_path, rescaled_vol, plugin="tifffile", check_contrast=False)
+        rotated_img = np.rot90(rescaled_vol, k=3, axes=(1, 2))
+
+        imsave(self.tiff_path, rotated_img, plugin="tifffile", check_contrast=False)
 
         print("Saved tiff volume.")
         del volume, cropped_vol
@@ -294,7 +298,9 @@ class Meshing:
         )
         mask *= tmp
 
-        imsave(self.mask_path, mask, plugin="tifffile")
+        rotated_mask = np.rot90(mask, k=3, axes=(1, 2))
+
+        imsave(self.mask_path, rotated_mask.astype(np.uint8), plugin="tifffile")
 
         return mask
 
@@ -302,7 +308,7 @@ class Meshing:
         vertices_s, triangles_s, _, _ = marching_cubes(
             volume,
             level=None,
-            spacing=(1, 1, 1),
+            spacing=self.struct_size,
             step_size=self.mesh_size,
             allow_degenerate=False,
         )

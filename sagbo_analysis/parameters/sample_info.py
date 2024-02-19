@@ -20,6 +20,7 @@ class SampleInfo:
     processing_dir: str
     flats_path: str
     base_name_complement: str = ""
+    sample_name: str = None
     overwrite: bool = True
 
     flats_entry: str = "/1.1/measurement/marana"
@@ -30,7 +31,7 @@ class SampleInfo:
     distance_entry: str = "/1.1/instrument/positioners/nfdtx"
 
     energy: float = 65.35
-    pixel_size_m: float = 0.63e-6
+    pixel_size_m: float = 0.55e-6
 
     dering: bool = False
     backend: str = "ASTRA"
@@ -39,9 +40,12 @@ class SampleInfo:
     def exp_name(self):
         return self.sample_dir.split("/")[3]
 
-    @property
-    def sample_name(self):
-        return self.sample_dir.split("/")[-2]
+    # @property
+    # def sample_name(self):
+    #     if self.sample_name is not None:
+    #         return self.sample_name
+    #     else:
+    #         return self.sample_dir.split("/")[-2]
 
     @property
     def pca_flat_file(self):
