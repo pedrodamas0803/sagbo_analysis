@@ -207,4 +207,5 @@ class DVC_uncertainty(DVC_Setup):
             ref_im=self.ref_img_path, def_im=self.shifted_vol_path, roi=roi
         )
         with open(self.mesh_script_name, "w") as f:
-            f.writelines(script)
+            for line in script:
+                f.writelines(line)
