@@ -4,7 +4,7 @@ def uncertainty_mesh_size(ref_im:str, def_im:str, roi:tuple, nscale:int = 1):
     
     xmin, xmax, ymin, ymax, zmin, zmax = roi
 
-    script = f"
+    script = f" \n
             addpath(genpath('~/UFreckles_PD/'));  \n
             for mesh_size = [8:4:64] \n
                 param.analysis='correlation'; \n
