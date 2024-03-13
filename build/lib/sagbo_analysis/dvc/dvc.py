@@ -1,5 +1,6 @@
 import os, glob
 from datetime import datetime
+from matplotlib import pyplot as plt
 import numpy as np
 import scipy.ndimage as ndi
 import skimage as sk
@@ -79,11 +80,14 @@ class DVC_Setup:
         for dataset in self.processing_paths:
             tiff_name = f"{dataset.strip('.h5')}.tiff"
             dst = os.path.join(self.dvc_dir, os.path.basename(tiff_name))
-            if not os.path.exists(dst):
+
+            try:
                 os.symlink(src=tiff_name, dst=dst)
-            else:
+            except Exception as e:
                 os.remove(dst)
                 os.symlink(src=tiff_name, dst=dst)
+            # if not os.path.exists(dst):
+            # else:
 
 
 class DVC_uncertainty(DVC_Setup):
@@ -101,7 +105,7 @@ class DVC_uncertainty(DVC_Setup):
 
     @property
     def mesh_script_name(self):
-        return "mesh_uncertainty.m"
+        return os.path.join(self.uncertainty_dir, "mesh_uncertainty.m")
 
     def _import_reference_volume(self):
         vol = sk.io.imread(self.ref_img_path, plugin="tifffile")
@@ -163,7 +167,7 @@ class DVC_uncertainty(DVC_Setup):
 
         print("Saved the shifted volume.")
 
-    def _get_roi(self):
+    def _get_roi(self, plot_image:bool = False):
 
         vol = self._import_reference_volume()
 
@@ -175,7 +179,7 @@ class DVC_uncertainty(DVC_Setup):
 
         mask = np.zeros(flatened.shape, np.uint8)
 
-        mask[vol >= thrs] = 255
+        mask[flatened >= thrs] = 255
 
         mask = sk.morphology.binary_erosion(mask, footprint=np.ones((5, 5)))
 
@@ -191,11 +195,16 @@ class DVC_uncertainty(DVC_Setup):
 
         max_depth = int(nz // 2 + nz // 4)
 
+        if plot_image:
+            plt.figure()
+            plt.imshow(flatened, cmap = 'gray')
+            plt.show()
+
         return (
-            int(1.1 * min_row),
-            int(0.9 * max_row),
             int(1.1 * min_col),
             int(0.9 * max_col),
+            int(1.1 * min_row),
+            int(0.9 * max_row),
             min_depth,
             max_depth,
         )
@@ -207,4 +216,5 @@ class DVC_uncertainty(DVC_Setup):
             ref_im=self.ref_img_path, def_im=self.shifted_vol_path, roi=roi
         )
         with open(self.mesh_script_name, "w") as f:
-            f.writelines(script)
+            for line in script:
+                f.writelines(line)
