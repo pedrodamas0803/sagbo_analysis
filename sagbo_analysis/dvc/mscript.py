@@ -103,5 +103,42 @@ def uncertainty_lambda_size(
     return script
 
 
-def slurm_script():
-    pass
+def slurm_script(script_name:str, partition:str = 'nice-long', cpus_per_task:int = 40, mem_gb:int = 200, mail_type:str = "NONE", mail_address:str|None = None):
+    
+    assert partition in ["nice_long", "nice"]
+
+    if mail_type not in ['NONE', 'BEGIN', 'END', 'FAIL', 'ALL']:
+        mail_type = 'NONE'
+
+    if mail_type != "NONE" and mail_address == None:
+        mail_type = "NONE"
+
+    if partition == 'nice':
+        rtime = "12:00:00"
+    else:
+        rtime = "72:00:00"
+    
+    script = [
+        f"#!/bin/bash\n",
+        f"#SBATCH --job-name='UFreckles_DVC'                            # Job name\n",
+        f"#SBATCH --mail-type={mail_type}                         # Mail events (NONE, BEGIN, END, FAIL, ALL)\n",
+        f"#SBATCH --mail-user={mail_address}     # Where to send mail	\n",
+        f"#SBATCH --partition={partition}                        # Run on NICE-Long machinie, no limit of time\n",
+        f"#SBATCH --ntasks=1\n",
+        f"#SBATCH --cpus-per-task={cpus_per_task}\n",
+        f"#SBATCH --mem={mem_gb}GB                            # Job memory request\n",
+        f"#SBATCH --time={rtime}                              # Time limit hrs:min:sec\n",
+        f"#SBATCH --output=DVC_slurm_%x.%j.out                         # %j job id; %x job name\n",
+        f"#SBATCH --error=DVC_slurm_%x.%j.err                          # error message\n",
+        f"\n",
+        f"echo 'Date              = $(date)'\n",
+        f"echo 'Hostname          = $(hostname -s)'\n",
+        f"echo 'Working Directory = $(pwd)'\n",
+        f"echo 'Number of Nodes Allocated      = $SLURM_JOB_NUM_NODES'\n",
+        f"echo 'Number of Tasks Allocated      = $SLURM_NTASKS'\n",
+        f"echo 'Number of Cores/Task Allocated = $SLURM_CPUS_PER_TASK'\n",
+        f"\n",
+        f"cd $(pwd)\n",
+        f"srun matlab -nodisplay -r '{script_name}\n'"
+        ]
+    return script
