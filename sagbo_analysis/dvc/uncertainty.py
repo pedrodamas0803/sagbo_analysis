@@ -1,4 +1,4 @@
-import os, glob
+import os, glob, csv
 from datetime import datetime
 from matplotlib import pyplot as plt
 import numpy as np
@@ -7,6 +7,7 @@ import skimage as sk
 from .dvc_utils import read_config_file, get_dataset_name
 from .setup import DVC_Setup
 from .mscript import uncertainty_mesh_size, uncertainty_lambda_size
+
 
 class DVC_uncertainty(DVC_Setup):
 
@@ -24,7 +25,7 @@ class DVC_uncertainty(DVC_Setup):
     @property
     def mesh_script_name(self):
         return os.path.join(self.uncertainty_dir, "mesh_uncertainty.m")
-    
+
     @property
     def lambda_script_name(self):
         return os.path.join(self.uncertainty_dir, "lambda_uncertainty.m")
@@ -89,7 +90,7 @@ class DVC_uncertainty(DVC_Setup):
 
         print("Saved the shifted volume.")
 
-    def _get_roi(self, plot_image:bool = False):
+    def _get_roi(self, plot_image: bool = False):
 
         vol = self._import_reference_volume()
 
@@ -119,7 +120,7 @@ class DVC_uncertainty(DVC_Setup):
 
         if plot_image:
             plt.figure()
-            plt.imshow(flatened, cmap = 'gray')
+            plt.imshow(flatened, cmap="gray")
             plt.show()
 
         return (
@@ -144,7 +145,9 @@ class DVC_uncertainty(DVC_Setup):
     def _write_lambda_script(self):
 
         roi = self._get_roi()
-        script = uncertainty_lambda_size(ref_im = self.ref_img_path, def_im = self.shifted_vol_path, roi = roi)
+        script = uncertainty_lambda_size(
+            ref_im=self.ref_img_path, def_im=self.shifted_vol_path, roi=roi
+        )
 
         with open(self.lambda_script_name, "w") as f:
             for line in script:
@@ -156,4 +159,48 @@ class DVC_uncertainty_summary(DVC_Setup):
     def __init__(self, config_file: str, increment: int = 1) -> None:
         super().__init__(config_file, increment)
 
-    
+        z_shift, y_shift, x_shift = self._get_shifts()
+
+        self.zoffset = z_shift
+        self.yoffset = y_shift
+        self.xoffset = x_shift
+
+    def _get_shift_files(self):
+        shift_files = []
+        for file in os.listdir(self.uncertainty_dir):
+            if "shifts" in file and file.endswith(".txt"):
+                shift_files.append(os.path.join(self.uncertainty_dir, file))
+        return shift_files
+
+    def _get_shifts(self):
+        shift_file = self.choose_youngest_shift_file(self._get_shift_files)
+
+        z_shift, y_shift, x_shift = self.parse_shift_file(shift_file)
+
+        return z_shift, y_shift, x_shift
+
+    @staticmethod
+    def parse_shift_file(path: str):
+        with open(path, "r") as f:
+            freader = csv.reader(f, delimiter=",")
+            for row in freader:
+                match row[0].strip():
+                    case "z":
+                        z = float(row[1].strip())
+                    case "y":
+                        y = float(row[1].strip())
+                    case "x":
+                        x = float(row[1].strip())
+
+        return z, y, x
+
+    @staticmethod
+    def choose_youngest_shift_file(filelist: list):
+        highest_tt = None
+        highest_index = -1
+        for ii, file in enumerate(filelist):
+            tt = os.path.getmtime(file)
+            if tt > highest_tt:
+                highest_index = ii
+                highest_tt = tt
+        return filelist[highest_index]
