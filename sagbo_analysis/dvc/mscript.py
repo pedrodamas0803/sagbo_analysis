@@ -103,7 +103,7 @@ def uncertainty_lambda_size(
     return script
 
 
-def slurm_script(script_name:str, partition:str = 'nice-long', cpus_per_task:int = 40, mem_gb:int = 200, mail_type:str = "NONE", mail_address:str|None = None):
+def slurm_script(script_name:str, partition:str = 'nice-long', cpus_per_task:int = 40, mem_gb:int = 200, mail_type:str = "NONE", mail_address:[str,None] = None): # type: ignore
     
     assert partition in ["nice_long", "nice"]
 
