@@ -184,7 +184,8 @@ class DVC_uncertainty_summary(DVC_Setup):
         with open(path, "r") as f:
             freader = csv.reader(f, delimiter=",")
             for row in freader:
-                match row[0].strip():
+                name = row[0].strip()
+                match name:
                     case "z":
                         z = float(row[1].strip())
                     case "y":
