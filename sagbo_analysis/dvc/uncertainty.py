@@ -175,7 +175,11 @@ class DVC_uncertainty_summary(DVC_Setup):
     def _get_shifts(self):
         shift_file = self.choose_youngest_shift_file(self._get_shift_files)
 
-        z_shift, y_shift, x_shift = self.parse_shift_file(shift_file)
+        try:
+            z_shift, y_shift, x_shift = self.parse_shift_file(shift_file)
+        except ValueError as e:
+            print(e)
+            return -1
 
         return z_shift, y_shift, x_shift
 
@@ -184,14 +188,16 @@ class DVC_uncertainty_summary(DVC_Setup):
         with open(path, "r") as f:
             freader = csv.reader(f, delimiter=",")
             for row in freader:
-                name = row[0].strip()
-                match name:
-                    case "z":
-                        z = float(row[1].strip())
-                    case "y":
-                        y = float(row[1].strip())
-                    case "x":
-                        x = float(row[1].strip())
+                if row[0].strip() == "z":
+                    z = float(row[1].strip())
+                elif row[0].strip() == "y":
+                    y = float(row[1].strip())
+                elif row[0].strip() == "x":
+                    x = float(row[1].strip())
+                else:
+                    raise ValueError(
+                        "The right flags were not found, restart the uncertainty processing."
+                    )
 
         return z, y, x
 
