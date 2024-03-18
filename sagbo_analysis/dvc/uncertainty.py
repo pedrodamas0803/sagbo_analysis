@@ -193,7 +193,7 @@ class DVC_uncertainty_summary(DVC_Setup):
                 elif row[0].strip() == "y":
                     y = float(row[1].strip())
                 elif row[0].strip() == "x":
-                    x = float(row[1].strip())
+                    x = float(row[1].strip( ))
                 elif row[0].strip() == 'coord':
                     continue
                 else:
