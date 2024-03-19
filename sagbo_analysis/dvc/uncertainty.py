@@ -121,6 +121,8 @@ class DVC_uncertainty(DVC_Setup):
         if plot_image:
             plt.figure()
             plt.imshow(flatened, cmap="gray")
+            plt.hlines([min_row, max_row], min_col, max_col)
+            plt.vlines([min_col, max_col], min_row, max_row)
             plt.show()
 
         return (
@@ -193,8 +195,8 @@ class DVC_uncertainty_summary(DVC_Setup):
                 elif row[0].strip() == "y":
                     y = float(row[1].strip())
                 elif row[0].strip() == "x":
-                    x = float(row[1].strip( ))
-                elif row[0].strip() == 'coord':
+                    x = float(row[1].strip())
+                elif row[0].strip() == "coord":
                     continue
                 else:
                     raise ValueError(
