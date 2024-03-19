@@ -6,7 +6,7 @@ import scipy.ndimage as ndi
 import skimage as sk
 from .dvc_utils import read_config_file, get_dataset_name
 from .setup import DVC_Setup
-from .mscript import uncertainty_mesh_size, uncertainty_lambda_size
+from .mscript import uncertainty_mesh_size, uncertainty_lambda_size, slurm_script
 
 
 class DVC_uncertainty(DVC_Setup):
@@ -104,9 +104,9 @@ class DVC_uncertainty(DVC_Setup):
 
         mask[flatened >= thrs] = 255
 
-        mask = sk.morphology.binary_erosion(mask, footprint=np.ones((5, 5)))
+        mask = sk.morphology.binary_erosion(mask, footprint=np.ones((150, 150)))
 
-        mask = sk.morphology.binary_dilation(mask, footprint=np.ones((5, 5)))
+        mask = sk.morphology.binary_dilation(mask, footprint=np.ones((50, 50)))
 
         labeled = sk.measure.label(mask)
 
@@ -121,6 +121,8 @@ class DVC_uncertainty(DVC_Setup):
         if plot_image:
             plt.figure()
             plt.imshow(flatened, cmap="gray")
+            plt.hlines([min_row, max_row], min_col, max_col)
+            plt.vlines([min_col, max_col], min_row, max_row)
             plt.show()
 
         return (
@@ -140,6 +142,12 @@ class DVC_uncertainty(DVC_Setup):
         )
         with open(self.mesh_script_name, "w") as f:
             for line in script:
+                f.writelines(line)
+        
+        cluster_script = slurm_script(self.mesh_script_name.strip('.m'), )
+
+        with open('mesh_size_cluster.slurm', 'w') as f:
+            for line in cluster_script:
                 f.writelines(line)
 
     def _write_lambda_script(self):
@@ -194,7 +202,7 @@ class DVC_uncertainty_summary(DVC_Setup):
                     y = float(row[1].strip())
                 elif row[0].strip() == "x":
                     x = float(row[1].strip())
-                elif row[0].strip() == 'coord':
+                elif row[0].strip() == "coord":
                     continue
                 else:
                     raise ValueError(

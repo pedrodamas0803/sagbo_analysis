@@ -5,7 +5,7 @@ def uncertainty_mesh_size(ref_im: str, def_im: str, roi: tuple, nscale: int = 1)
     xmin, xmax, ymin, ymax, zmin, zmax = roi
     script = [
         f" addpath(genpath('~/UFreckles_PD/'));\n",
-        f"for mesh_size = [8:4:64] \n",
+        f"for mesh_size = [64:-4:8] \n",
         f"    param.analysis='correlation'; \n",
         f"    param.reference_image='{ref_im}';\n",
         f"    param.deformed_image = '{def_im}';\n",
@@ -105,7 +105,7 @@ def uncertainty_lambda_size(
 
 def slurm_script(script_name:str, partition:str = 'nice-long', cpus_per_task:int = 40, mem_gb:int = 200, mail_type:str = "NONE", mail_address:[str,None] = None): # type: ignore
     
-    assert partition in ["nice_long", "nice"]
+    assert partition in ["nice-long", "nice"]
 
     if mail_type not in ['NONE', 'BEGIN', 'END', 'FAIL', 'ALL']:
         mail_type = 'NONE'
