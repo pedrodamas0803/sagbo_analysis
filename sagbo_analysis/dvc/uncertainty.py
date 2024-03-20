@@ -6,7 +6,8 @@ import scipy.ndimage as ndi
 import skimage as sk
 from .dvc_utils import read_config_file, get_dataset_name
 from .setup import DVC_Setup
-from .mscript import uncertainty_mesh_size, uncertainty_lambda_size, slurm_script
+from .result import DVC_result
+from .mscript import uncertainty_mesh_size, uncertainty_lambda_size
 
 
 class DVC_uncertainty(DVC_Setup):
@@ -104,9 +105,9 @@ class DVC_uncertainty(DVC_Setup):
 
         mask[flatened >= thrs] = 255
 
-        mask = sk.morphology.binary_erosion(mask, footprint=np.ones((150, 150)))
+        mask = sk.morphology.binary_erosion(mask, footprint=np.ones((15, 15)))
 
-        mask = sk.morphology.binary_dilation(mask, footprint=np.ones((50, 50)))
+        mask = sk.morphology.binary_dilation(mask, footprint=np.ones((15, 15)))
 
         labeled = sk.measure.label(mask)
 
@@ -143,12 +144,6 @@ class DVC_uncertainty(DVC_Setup):
         with open(self.mesh_script_name, "w") as f:
             for line in script:
                 f.writelines(line)
-        
-        cluster_script = slurm_script(self.mesh_script_name.strip('.m'), )
-
-        with open('mesh_size_cluster.slurm', 'w') as f:
-            for line in cluster_script:
-                f.writelines(line)
 
     def _write_lambda_script(self):
 
@@ -172,6 +167,15 @@ class DVC_uncertainty_summary(DVC_Setup):
         self.zoffset = z_shift
         self.yoffset = y_shift
         self.xoffset = x_shift
+
+        self._create_results_folder()
+
+    @property
+    def results_folder(self):
+        resfolder = os.path.join(self.uncertainty_dir, "results")
+        if not os.path.exists(resfolder):
+            os.mkdir(resfolder)
+        return resfolder
 
     def _get_shift_files(self):
         shift_files = []
@@ -221,3 +225,63 @@ class DVC_uncertainty_summary(DVC_Setup):
                 highest_index = ii
                 highest_tt = tt
         return filelist[highest_index]
+
+    def _get_resfiles(self):
+
+        resfiles = glob.glob(os.path.join(self.uncertainty_dir, "unctty_mesh_*.res"))
+
+        return resfiles
+
+    def mesh_size_summary(self):
+
+        results = self._get_results_dict()
+
+        reg_par = results[0]["reg_par"]
+        mesh_size = []
+        std = []
+        for result in results:
+            mesh_size.append(result["mesh_size"])
+            std.append(result["std"])
+        mesh_size = np.array(mesh_size)
+        std = np.array(std)
+
+        fig, ax = plt.subplots(1, 1, figsize=(8, 4.5))
+
+        ax.plot(mesh_size, std, "r--")
+        ax.semilogx()
+        ax.semilogy()
+        ax.set_title(f"regularization = {reg_par}")
+
+        fig.tight_layout()
+
+        fig.savefig(
+            os.path.join(self.results_folder, "mesh_size_uncertainty.png"),
+            bbox_inches="tight",
+            edgecolor="white",
+            facecolor="white",
+        )
+
+        print(
+            f"The lowest uncertainty level is at a mesh size = {mesh_size[std == std.min()]}."
+        )
+
+    def _get_results_dict(self):
+
+        dict_list = []
+        for file in self._get_resfiles():
+            res = DVC_result(
+                res_path=file,
+                z_pix_offset=self.zoffset,
+                y_pix_offset=self.yoffset,
+                x_pix_offset=self.xoffset,
+            )
+
+            dict_list.append(
+                {
+                    "reg_par": res.regularization_parameter,
+                    "mesh_size": res.mesh_size,
+                    "std": res.std(),
+                }
+            )
+
+        return dict_list
