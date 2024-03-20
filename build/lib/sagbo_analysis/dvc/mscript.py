@@ -96,7 +96,6 @@ def uncertainty_lambda_size(
         f"    load(fullfile('TMP','0_3d_mesh_0'),'Nnodes','Nelems','xo','yo','zo','conn','elt','ng','rint','Smesh','ns'); \n",
         f"    save(param.result_file,'U','Nnodes','Nelems','xo','yo','zo','param','model','nmod','conn','elt','ng','rint','Smesh','ns', 'Uini'); \n",
         f"    postproVTK3D(param.result_file,0,1); \n",
-        f"    postproc(param.result_file) \n",
         f"end \n",
     ]
 
@@ -139,6 +138,6 @@ def slurm_script(script_name:str, partition:str = 'nice-long', cpus_per_task:int
         f"echo 'Number of Cores/Task Allocated = $SLURM_CPUS_PER_TASK'\n",
         f"\n",
         f"cd $(pwd)\n",
-        f"srun matlab -nodisplay -r '{script_name}\n'"
+        f"srun matlab -nodisplay -r '{script_name}'\n"
         ]
     return script

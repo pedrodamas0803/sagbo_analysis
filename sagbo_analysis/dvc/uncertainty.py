@@ -168,7 +168,7 @@ class DVC_uncertainty_summary(DVC_Setup):
         self.yoffset = y_shift
         self.xoffset = x_shift
 
-        self._create_results_folder()
+        # self._create_results_folder()
 
     @property
     def results_folder(self):
@@ -227,8 +227,13 @@ class DVC_uncertainty_summary(DVC_Setup):
         return filelist[highest_index]
 
     def _get_resfiles(self):
-
-        resfiles = glob.glob(os.path.join(self.uncertainty_dir, "unctty_mesh_*.res"))
+        resfiles = []
+        resunclean = glob.glob(os.path.join(self.uncertainty_dir, "unctty_mesh_*.res"))
+        for file in resunclean:
+            if not 'error' in file:
+                resfiles.append(file)
+        
+        resfiles.sort()
 
         return resfiles
 
@@ -247,9 +252,10 @@ class DVC_uncertainty_summary(DVC_Setup):
 
         fig, ax = plt.subplots(1, 1, figsize=(8, 4.5))
 
-        ax.plot(mesh_size, std, "r--")
-        ax.semilogx()
-        ax.semilogy()
+        ax.plot(mesh_size, std, "r+")
+        # ax.set_ylim(ymax = 2.0)
+        # ax.semilogx()
+        # ax.semilogy()
         ax.set_title(f"regularization = {reg_par}")
 
         fig.tight_layout()
