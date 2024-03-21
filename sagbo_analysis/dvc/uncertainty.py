@@ -292,31 +292,28 @@ class DVC_uncertainty_summary(DVC_Setup):
 
         results = self._get_results_dict(analysis_type="lambda")
 
-        reg_par = results[0]["reg_par"]
+        mesh_size = results[0]["mesh_size"]
 
-        mesh_size = []
+        reg_par = []
         std = []
         for result in results:
-            mesh_size.append(result["mesh_size"])
+            reg_par.append(result["reg_par"])
             std.append(result["std"])
-        mesh_size = np.array(mesh_size)
+        reg_par = np.array(reg_par)
         std = np.array(std)
 
         fig, ax = plt.subplots(1, 1, figsize=(8, 4.5))
 
-        ax.plot(mesh_size, std, "r+")
+        ax.plot(reg_par, std, "r+")
         # ax.set_ylim(ymax = 2.0)
         # ax.semilogx()
         ax.semilogy()
-        if reg_par == 1000:
-            ax.set_title(f"No regularization used.")
-        else:
-            ax.set_title(f"regularization = {reg_par}")
+        ax.set_title(f"Mesh size = {mesh_size}.")
 
         fig.tight_layout()
 
         fig.savefig(
-            os.path.join(self.results_folder, "mesh_size_uncertainty.png"),
+            os.path.join(self.results_folder, "lambda_size_uncertainty.png"),
             bbox_inches="tight",
             edgecolor="white",
             facecolor="white",
