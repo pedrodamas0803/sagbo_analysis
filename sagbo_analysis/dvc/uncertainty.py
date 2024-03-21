@@ -148,8 +148,12 @@ class DVC_uncertainty(DVC_Setup):
     def _write_lambda_script(self):
 
         roi = self._get_roi()
+        mesh_size = self._guess_mesh_size()
         script = uncertainty_lambda_size(
-            ref_im=self.ref_img_path, def_im=self.shifted_vol_path, roi=roi
+            ref_im=self.ref_img_path,
+            def_im=self.shifted_vol_path,
+            mesh_size=mesh_size,
+            roi=roi,
         )
 
         with open(self.lambda_script_name, "w") as f:
@@ -230,9 +234,9 @@ class DVC_uncertainty_summary(DVC_Setup):
         resfiles = []
         resunclean = glob.glob(os.path.join(self.uncertainty_dir, "unctty_mesh_*.res"))
         for file in resunclean:
-            if not 'error' in file:
+            if not "error" in file:
                 resfiles.append(file)
-        
+
         resfiles.sort()
 
         return resfiles
@@ -242,6 +246,7 @@ class DVC_uncertainty_summary(DVC_Setup):
         results = self._get_results_dict()
 
         reg_par = results[0]["reg_par"]
+
         mesh_size = []
         std = []
         for result in results:
@@ -256,7 +261,10 @@ class DVC_uncertainty_summary(DVC_Setup):
         # ax.set_ylim(ymax = 2.0)
         # ax.semilogx()
         # ax.semilogy()
-        ax.set_title(f"regularization = {reg_par}")
+        if reg_par == 1000:
+            ax.set_title(f"No regularization used.")
+        else:
+            ax.set_title(f"regularization = {reg_par}")
 
         fig.tight_layout()
 
@@ -266,10 +274,8 @@ class DVC_uncertainty_summary(DVC_Setup):
             edgecolor="white",
             facecolor="white",
         )
-
-        print(
-            f"The lowest uncertainty level is at a mesh size = {mesh_size[std == std.min()]}."
-        )
+        choice = self.choose_mesh_size(mesh_size, std)
+        print(f"The lowest uncertainty level is at a mesh size = {choice}.")
 
     def _get_results_dict(self):
 
@@ -291,3 +297,25 @@ class DVC_uncertainty_summary(DVC_Setup):
             )
 
         return dict_list
+
+    @staticmethod
+    def choose_mesh_size(mesh_size: list, std: list, max_std: float = 0.1):
+
+        possible_size = []
+        possible_std = []
+
+        for size, dev in zip(mesh_size, std):
+            if dev > max_std:
+                continue
+            elif dev <= max_std:
+                possible_size.append(size)
+                possible_std.append(dev)
+
+        lower = np.min(possible_std)
+        index = -1
+
+        for ii, std in enumerate(possible_std):
+            if std == lower:
+                index = ii
+
+        return possible_size[index]
