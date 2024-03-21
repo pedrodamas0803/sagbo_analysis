@@ -145,10 +145,10 @@ class DVC_uncertainty(DVC_Setup):
             for line in script:
                 f.writelines(line)
 
-    def _write_lambda_script(self):
+    def _write_lambda_script(self, mesh_size: int = 16):
 
         roi = self._get_roi()
-        mesh_size = self._guess_mesh_size()
+        # mesh_size = self._guess_mesh_size()
         script = uncertainty_lambda_size(
             ref_im=self.ref_img_path,
             def_im=self.shifted_vol_path,
