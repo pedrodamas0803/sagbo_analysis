@@ -230,9 +230,20 @@ class DVC_uncertainty_summary(DVC_Setup):
                 highest_tt = tt
         return filelist[highest_index]
 
-    def _get_resfiles(self):
+    def _get_resfiles(self, analysis_type: str):
+
+        if not analysis_type in ["mesh_size", "lambda"]:
+            analysis_type = "mesh_size"
+
         resfiles = []
-        resunclean = glob.glob(os.path.join(self.uncertainty_dir, "unctty_mesh_*.res"))
+        if analysis_type == "mesh_size":
+            resunclean = glob.glob(
+                os.path.join(self.uncertainty_dir, "unctty_mesh_*.res")
+            )
+        else:
+            resunclean = glob.glob(
+                os.path.join(self.uncertainty_dir, "unctty_lambda_*.res")
+            )
         for file in resunclean:
             if not "error" in file:
                 resfiles.append(file)
@@ -243,7 +254,7 @@ class DVC_uncertainty_summary(DVC_Setup):
 
     def mesh_size_summary(self):
 
-        results = self._get_results_dict()
+        results = self._get_results_dict(analysis_type="mesh_size")
 
         reg_par = results[0]["reg_par"]
 
@@ -260,7 +271,7 @@ class DVC_uncertainty_summary(DVC_Setup):
         ax.plot(mesh_size, std, "r+")
         # ax.set_ylim(ymax = 2.0)
         # ax.semilogx()
-        # ax.semilogy()
+        ax.semilogy()
         if reg_par == 1000:
             ax.set_title(f"No regularization used.")
         else:
@@ -277,10 +288,44 @@ class DVC_uncertainty_summary(DVC_Setup):
         choice = self.choose_mesh_size(mesh_size, std)
         print(f"The lowest uncertainty level is at a mesh size = {choice}.")
 
-    def _get_results_dict(self):
+    def lambda_size_summary(self):
+
+        results = self._get_results_dict(analysis_type="lambda")
+
+        reg_par = results[0]["reg_par"]
+
+        mesh_size = []
+        std = []
+        for result in results:
+            mesh_size.append(result["mesh_size"])
+            std.append(result["std"])
+        mesh_size = np.array(mesh_size)
+        std = np.array(std)
+
+        fig, ax = plt.subplots(1, 1, figsize=(8, 4.5))
+
+        ax.plot(mesh_size, std, "r+")
+        # ax.set_ylim(ymax = 2.0)
+        # ax.semilogx()
+        ax.semilogy()
+        if reg_par == 1000:
+            ax.set_title(f"No regularization used.")
+        else:
+            ax.set_title(f"regularization = {reg_par}")
+
+        fig.tight_layout()
+
+        fig.savefig(
+            os.path.join(self.results_folder, "mesh_size_uncertainty.png"),
+            bbox_inches="tight",
+            edgecolor="white",
+            facecolor="white",
+        )
+
+    def _get_results_dict(self, analysis_type: str):
 
         dict_list = []
-        for file in self._get_resfiles():
+        for file in self._get_resfiles(analysis_type=analysis_type):
             res = DVC_result(
                 res_path=file,
                 z_pix_offset=self.zoffset,
