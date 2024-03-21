@@ -105,7 +105,7 @@ class DVC_uncertainty(DVC_Setup):
 
         mask[flatened >= thrs] = 255
 
-        mask = sk.morphology.binary_erosion(mask, footprint=np.ones((15, 15)))
+        mask = sk.morphology.binary_erosion(mask, footprint=np.ones((150, 150)))
 
         mask = sk.morphology.binary_dilation(mask, footprint=np.ones((15, 15)))
 
