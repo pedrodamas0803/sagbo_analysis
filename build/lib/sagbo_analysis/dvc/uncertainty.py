@@ -105,7 +105,7 @@ class DVC_uncertainty(DVC_Setup):
 
         mask[flatened >= thrs] = 255
 
-        mask = sk.morphology.binary_erosion(mask, footprint=np.ones((15, 15)))
+        mask = sk.morphology.binary_erosion(mask, footprint=np.ones((150, 150)))
 
         mask = sk.morphology.binary_dilation(mask, footprint=np.ones((15, 15)))
 
@@ -145,11 +145,15 @@ class DVC_uncertainty(DVC_Setup):
             for line in script:
                 f.writelines(line)
 
-    def _write_lambda_script(self):
+    def _write_lambda_script(self, mesh_size: int = 16):
 
         roi = self._get_roi()
+        # mesh_size = self._guess_mesh_size()
         script = uncertainty_lambda_size(
-            ref_im=self.ref_img_path, def_im=self.shifted_vol_path, roi=roi
+            ref_im=self.ref_img_path,
+            def_im=self.shifted_vol_path,
+            mesh_size=mesh_size,
+            roi=roi,
         )
 
         with open(self.lambda_script_name, "w") as f:
@@ -226,22 +230,34 @@ class DVC_uncertainty_summary(DVC_Setup):
                 highest_tt = tt
         return filelist[highest_index]
 
-    def _get_resfiles(self):
+    def _get_resfiles(self, analysis_type: str):
+
+        if not analysis_type in ["mesh_size", "lambda"]:
+            analysis_type = "mesh_size"
+
         resfiles = []
-        resunclean = glob.glob(os.path.join(self.uncertainty_dir, "unctty_mesh_*.res"))
+        if analysis_type == "mesh_size":
+            resunclean = glob.glob(
+                os.path.join(self.uncertainty_dir, "unctty_mesh_*.res")
+            )
+        else:
+            resunclean = glob.glob(
+                os.path.join(self.uncertainty_dir, "unctty_lambda_*.res")
+            )
         for file in resunclean:
-            if not 'error' in file:
+            if not "error" in file:
                 resfiles.append(file)
-        
+
         resfiles.sort()
 
         return resfiles
 
     def mesh_size_summary(self):
 
-        results = self._get_results_dict()
+        results = self._get_results_dict(analysis_type="mesh_size")
 
         reg_par = results[0]["reg_par"]
+
         mesh_size = []
         std = []
         for result in results:
@@ -255,8 +271,11 @@ class DVC_uncertainty_summary(DVC_Setup):
         ax.plot(mesh_size, std, "r+")
         # ax.set_ylim(ymax = 2.0)
         # ax.semilogx()
-        # ax.semilogy()
-        ax.set_title(f"regularization = {reg_par}")
+        ax.semilogy()
+        if reg_par == 1000:
+            ax.set_title(f"No regularization used.")
+        else:
+            ax.set_title(f"regularization = {reg_par}")
 
         fig.tight_layout()
 
@@ -266,15 +285,44 @@ class DVC_uncertainty_summary(DVC_Setup):
             edgecolor="white",
             facecolor="white",
         )
+        choice = self.choose_mesh_size(mesh_size, std)
+        print(f"The lowest uncertainty level is at a mesh size = {choice}.")
 
-        print(
-            f"The lowest uncertainty level is at a mesh size = {mesh_size[std == std.min()]}."
+    def lambda_size_summary(self):
+
+        results = self._get_results_dict(analysis_type="lambda")
+
+        mesh_size = results[0]["mesh_size"]
+
+        reg_par = []
+        std = []
+        for result in results:
+            reg_par.append(result["reg_par"])
+            std.append(result["std"])
+        reg_par = np.array(reg_par)
+        std = np.array(std)
+
+        fig, ax = plt.subplots(1, 1, figsize=(8, 4.5))
+
+        ax.plot(reg_par, std, "r+")
+        # ax.set_ylim(ymax = 2.0)
+        # ax.semilogx()
+        ax.semilogy()
+        ax.set_title(f"Mesh size = {mesh_size}.")
+
+        fig.tight_layout()
+
+        fig.savefig(
+            os.path.join(self.results_folder, "lambda_size_uncertainty.png"),
+            bbox_inches="tight",
+            edgecolor="white",
+            facecolor="white",
         )
 
-    def _get_results_dict(self):
+    def _get_results_dict(self, analysis_type: str):
 
         dict_list = []
-        for file in self._get_resfiles():
+        for file in self._get_resfiles(analysis_type=analysis_type):
             res = DVC_result(
                 res_path=file,
                 z_pix_offset=self.zoffset,
@@ -291,3 +339,25 @@ class DVC_uncertainty_summary(DVC_Setup):
             )
 
         return dict_list
+
+    @staticmethod
+    def choose_mesh_size(mesh_size: list, std: list, max_std: float = 0.1):
+
+        possible_size = []
+        possible_std = []
+
+        for size, dev in zip(mesh_size, std):
+            if dev > max_std:
+                continue
+            elif dev <= max_std:
+                possible_size.append(size)
+                possible_std.append(dev)
+
+        lower = np.min(possible_std)
+        index = -1
+
+        for ii, std in enumerate(possible_std):
+            if std == lower:
+                index = ii
+
+        return possible_size[index]

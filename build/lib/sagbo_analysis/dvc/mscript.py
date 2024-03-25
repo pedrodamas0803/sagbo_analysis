@@ -14,7 +14,7 @@ def uncertainty_mesh_size(ref_im: str, def_im: str, roi: tuple, nscale: int = 1)
         f"    param.roi=[{xmin}, {xmax}, {ymin}, {ymax}, {zmin}, {zmax}]; \n",
         f"    param.pixel_size= 1.000000e+00; \n",
         f"    param.convergance_limit=1.000000e-03; \n",
-        f"    param.iter_max=50; \n",
+        f"    param.iter_max=15; \n",
         f"    param.regularization_type='none'; \n",
         f"    param.regularization_parameter=1000; \n",
         f"    param.psample=1; \n",
@@ -68,7 +68,7 @@ def uncertainty_lambda_size(
         f"    param.roi=[{xmin}, {xmax}, {ymin}, {ymax}, {zmin}, {zmax}]; \n",
         f"    param.pixel_size= 1.000000e+00; \n",
         f"    param.convergance_limit=1.000000e-03; \n",
-        f"    param.iter_max=50; \n",
+        f"    param.iter_max=15; \n",
         f"    param.regularization_type='tiko'; \n",
         f"    param.regularization_parameter=lambda; \n",
         f"    param.psample=1; \n",
@@ -102,21 +102,21 @@ def uncertainty_lambda_size(
     return script
 
 
-def slurm_script(script_name:str, partition:str = 'nice-long', cpus_per_task:int = 40, mem_gb:int = 200, mail_type:str = "NONE", mail_address:[str,None] = None): # type: ignore
-    
+def slurm_script(script_name: str, partition: str = "nice-long", cpus_per_task: int = 40, mem_gb: int = 200, mail_type: str = "NONE", mail_address: [str, None] = None):  # type: ignore
+
     assert partition in ["nice-long", "nice"]
 
-    if mail_type not in ['NONE', 'BEGIN', 'END', 'FAIL', 'ALL']:
-        mail_type = 'NONE'
+    if mail_type not in ["NONE", "BEGIN", "END", "FAIL", "ALL"]:
+        mail_type = "NONE"
 
     if mail_type != "NONE" and mail_address == None:
         mail_type = "NONE"
 
-    if partition == 'nice':
+    if partition == "nice":
         rtime = "12:00:00"
     else:
         rtime = "72:00:00"
-    
+
     script = [
         f"#!/bin/bash\n",
         f"#SBATCH --job-name='UFreckles_DVC'                            # Job name\n",
@@ -138,6 +138,6 @@ def slurm_script(script_name:str, partition:str = 'nice-long', cpus_per_task:int
         f"echo 'Number of Cores/Task Allocated = $SLURM_CPUS_PER_TASK'\n",
         f"\n",
         f"cd $(pwd)\n",
-        f"srun matlab -nodisplay -r '{script_name}'\n"
-        ]
+        f"srun matlab -nodisplay -r '{script_name}'\n",
+    ]
     return script
