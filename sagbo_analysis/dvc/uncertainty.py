@@ -127,10 +127,10 @@ class DVC_uncertainty(DVC_Setup):
             plt.show()
 
         return (
-            int(1.2 * min_col),
-            int(0.8 * max_col),
-            int(1.2 * min_row),
-            int(0.8 * max_row),
+            int(1.1 * min_col),
+            int(0.9 * max_col),
+            int(1.1 * min_row),
+            int(0.9 * max_row),
             min_depth,
             max_depth,
         )

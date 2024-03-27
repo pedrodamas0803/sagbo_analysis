@@ -42,7 +42,6 @@ def uncertainty_mesh_size(ref_im: str, def_im: str, roi: tuple, nscale: int = 1)
         f"    load(fullfile('TMP','0_3d_mesh_0'),'Nnodes','Nelems','xo','yo','zo','conn','elt','ng','rint','Smesh','ns'); \n",
         f"    save(param.result_file,'U','Nnodes','Nelems','xo','yo','zo','param','model','nmod','conn','elt','ng','rint','Smesh','ns', 'Uini'); \n",
         f"    postproVTK3D(param.result_file,0,1); \n",
-        f"    postproc(param.result_file) \n",
         f"end \n",
     ]
 

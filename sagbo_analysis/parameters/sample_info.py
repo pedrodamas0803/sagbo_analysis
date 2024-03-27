@@ -113,6 +113,9 @@ class SampleInfo:
 
         self._create_processing_dirs()
 
+        if os.path.exists(self.config_file):
+            os.system(f'cp {self.config_file} {self.config_file}.bkp')
+
         with open(self.config_file, "w") as configfile:
             config.write(configfile)
 
