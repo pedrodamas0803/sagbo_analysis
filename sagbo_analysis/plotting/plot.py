@@ -99,9 +99,9 @@ class SampleImagePlot:
         axs = axs.ravel()
 
         for ii, img in enumerate(images):
-            imin, imax = calc_color_lims(img, mult=2)
+            # imin, imax = calc_color_lims(img, mult=2)
 
-            axs[ii].imshow(img, vmin=imin, vmax=imax, cmap="gray")
+            axs[ii].imshow(img, vmin=0, vmax=img.max(), cmap="gray")
             axs[ii].set_axis_off()
             if len(names) > 0:
                 axs[ii].set_title(f"{names[ii]}")
@@ -153,8 +153,8 @@ class SampleImagePlot:
             axs = axs.ravel()
 
             for ax, orthoslice in zip(axs, orthoslices):
-                imin, imax = calc_color_lims(orthoslice, mult=2)
-                ax.imshow(orthoslice, vmin=imin, vmax=imax, cmap="gray")
+                # imin, imax = calc_color_lims(orthoslice, mult=2)
+                ax.imshow(orthoslice, vmin=0, vmax=orthoslice.max(), cmap="gray")
 
             f.suptitle(sample_name)
 
