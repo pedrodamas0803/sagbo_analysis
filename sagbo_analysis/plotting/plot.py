@@ -3,6 +3,7 @@ from pkgutil import get_data
 import numpy as np
 import matplotlib.pyplot as plt
 
+from ..utils import calc_color_lims
 from .plot_utils import read_config_file, get_dataset_name
 
 
@@ -98,7 +99,9 @@ class SampleImagePlot:
         axs = axs.ravel()
 
         for ii, img in enumerate(images):
-            axs[ii].imshow(img, cmap="gray")
+            imin, imax = calc_color_lims(img, int=2)
+
+            axs[ii].imshow(img, vmin=imin, vmax=imax, cmap="gray")
             axs[ii].set_axis_off()
             if len(names) > 0:
                 axs[ii].set_title(f"{names[ii]}")
@@ -147,7 +150,8 @@ class SampleImagePlot:
             axs = axs.ravel()
 
             for ax, orthoslice in zip(axs, orthoslices):
-                ax.imshow(orthoslice, cmap="gray")
+                imin, imax = calc_color_lims(orthoslice, int=2)
+                ax.imshow(orthoslice, vmin=imin, vmax=imax, cmap="gray")
 
             f.suptitle(sample_name)
 
