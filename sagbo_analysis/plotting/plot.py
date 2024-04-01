@@ -8,17 +8,16 @@ from .plot_utils import read_config_file, get_dataset_name
 
 class SampleImagePlot:
 
-    def __init__(self, config_file:str, increment: int = 1) -> None:
-        
+    def __init__(self, config_file: str, increment: int = 1) -> None:
+
         cfg = read_config_file(path=config_file)
 
         self.processing_dir = cfg["processing_dir"]
         self.datasets = cfg["datasets"]
         self.increment = increment
 
-        if not os.path.exists(self.images) :
+        if not os.path.exists(self.images):
             os.mkdir(self.images)
-
 
     @property
     def selected_datasets(self):
@@ -47,84 +46,116 @@ class SampleImagePlot:
 
     @property
     def images(self):
-        return  os.path.join(self.processing_dir, 'images')
-    
+        return os.path.join(self.processing_dir, "images")
+
     # @property
     # def uncertainty_dir(self):
     #     return os.path.join(self.dvc_dir, "uncertainty")
-    
-    def _get_projection(self, path:str):
+
+    def _get_projection(self, path: str):
 
         sample_name = get_dataset_name(path)
-        
-        with h5py.File(path, 'r') as hin:
-            shape = hin['projections'].shape
-            proj = hin['projections'][shape[0]//2]
+
+        with h5py.File(path, "r") as hin:
+            shape = hin["projections"].shape
+            proj = hin["projections"][shape[0] // 2]
         return proj, sample_name
-    
-    def get_projections(self):
-        
+
+    def get_projections(self, ncols: int = 4, save=True):
+
+        do_save = False
         all_names = []
         all_projs = []
+
         for dataset in self.processing_paths:
-            proj = self._get_projection(dataset)
+            proj, sample_name = self._get_projection(dataset)
             all_projs.append(proj)
-        
-        return np.array(all_projs), all_names
-    
-    def save_image_grid(self, fn:str, images:np.ndarray, names:list = [], ncols:int = 4, save:bool = True):
+            all_names.append(sample_name)
+
+        if save:
+            do_save = True
+        self._save_image_grid(
+            fn="projection_grid",
+            images=all_projs,
+            names=all_names,
+            ncols=ncols,
+            save=do_save,
+        )
+
+    def _save_image_grid(
+        self,
+        fn: str,
+        images: np.ndarray,
+        names: list = [],
+        ncols: int = 4,
+        save: bool = True,
+    ):
 
         nimgs, _, _ = images.shape
         nrows = np.ceil(nimgs / ncols)
 
-        f, axs = plt.subplots(nrows, ncols, sharex = True, sharey = True)
+        f, axs = plt.subplots(nrows, ncols, sharex=True, sharey=True)
 
         axs = axs.ravel()
 
-        for ii, img  in enumerate(images):
-            axs[ii].imshow(img, cmap = 'gray')
+        for ii, img in enumerate(images):
+            axs[ii].imshow(img, cmap="gray")
             axs[ii].set_axis_off()
             if len(names) > 0:
-                axs[ii].set_title(f'{names[ii]}')
-        
+                axs[ii].set_title(f"{names[ii]}")
+
         f.tight_layout()
 
         if save:
-            f.savefig(os.path.join(self.images, f'{fn}.png'), facecolor = 'white', dpi = 300)
+            f.savefig(
+                os.path.join(self.images, f"{fn}.png"), facecolor="white", dpi=300
+            )
 
-    def _get_orthoslices(self, path:str):
-
-        '''
+    def _get_orthoslices(self, path: str):
+        """
         Returns orthogonal slices in the order xy, xz, yz
-        '''
+        """
 
         sample_name = get_dataset_name(path)
 
-        with h5py.File(path, 'r') as hin:
+        with h5py.File(path, "r") as hin:
             keys = list(hin.keys())
-            if 'volPDHG' in keys:
-                tag = 'volPDHG'
-            elif 'volSIRT' in keys:
-                tag = 'volSIRT'
-            elif 'volFBP' in keys:
-                tag = 'volFBP'
+            if "volPDHG" in keys:
+                tag = "volPDHG"
+            elif "volSIRT" in keys:
+                tag = "volSIRT"
+            elif "volFBP" in keys:
+                tag = "volFBP"
             else:
                 tag = None
-                print('No reconstruction was found. Skipping. ')
-                return 
+                print("No reconstruction was found. Skipping. ")
+                return
             shape = hin[tag].shape
-            xy = hin[tag][shape[0]//2, :, :]
-            xz = hin[tag][:, shape[1]//2, :]
-            yz = hin[tag][:, :, shape[2]//2]
+            xy = hin[tag][shape[0] // 2, :, :]
+            xz = hin[tag][:, shape[1] // 2, :]
+            yz = hin[tag][:, :, shape[2] // 2]
 
         return [xy, xz, yz], sample_name
-        
 
-    def get_orthogonal_views(self):
-        pass
+    def get_orthogonal_views(self, save: bool = True):
 
+        for file in self.selected_datasets:
 
+            orthoslices, sample_name = self._get_orthoslices(path=file)
 
+            f, axs = plt.subplots(1, 3)
 
+            axs = axs.ravel()
 
-            
+            for ax, orthoslice in zip(axs, orthoslices):
+                ax.imshow(orthoslice, cmap="gray")
+
+            f.suptitle(sample_name)
+
+            f.tight_layout()
+            if save:
+                f.savefig(
+                    os.path.join(self.images, f"{sample_name}.png"),
+                    facecolor="white",
+                    dpi=300,
+                )
