@@ -49,10 +49,6 @@ class SampleImagePlot:
     def images(self):
         return os.path.join(self.processing_dir, "images")
 
-    # @property
-    # def uncertainty_dir(self):
-    #     return os.path.join(self.dvc_dir, "uncertainty")
-
     def _get_projection(self, path: str):
 
         sample_name = get_dataset_name(path)
@@ -62,7 +58,9 @@ class SampleImagePlot:
             proj = hin["projections"][shape[0] // 2]
         return proj, sample_name
 
-    def get_projections(self, ncols: int = 4, save=True):
+    def get_projections(
+        self, ncols: int = 4, save=True, mult: int = 3, height: float = 1e3
+    ):
 
         do_save = False
         all_names = []
@@ -81,6 +79,8 @@ class SampleImagePlot:
             names=all_names,
             ncols=ncols,
             save=do_save,
+            mult=mult,
+            height=height,
         )
 
     def _save_image_grid(
@@ -90,6 +90,8 @@ class SampleImagePlot:
         names: list = [],
         ncols: int = 4,
         save: bool = True,
+        mult: int = 3,
+        height: float = 1e3,
     ):
 
         nrows = int(np.ceil(len(images) / ncols))
@@ -99,9 +101,9 @@ class SampleImagePlot:
         axs = axs.ravel()
 
         for ii, img in enumerate(images):
-            # imin, imax = calc_color_lims(img, mult=2)
+            imin, imax = calc_color_lims(img, mult=mult, height=height)
 
-            axs[ii].imshow(img, vmin=0, vmax=img.max(), cmap="gray")
+            axs[ii].imshow(img, vmin=imin, vmax=imax, cmap="gray")
             axs[ii].set_axis_off()
             if len(names) > 0:
                 axs[ii].set_title(f"{names[ii]}")
@@ -139,7 +141,9 @@ class SampleImagePlot:
 
         return [xy, xz, yz], sample_name
 
-    def get_orthogonal_views(self, save: bool = True):
+    def get_orthogonal_views(
+        self, save: bool = True, mult: int = 3, height: float = 1e3
+    ):
 
         for file in self.processing_paths:
 
@@ -153,8 +157,8 @@ class SampleImagePlot:
             axs = axs.ravel()
 
             for ax, orthoslice in zip(axs, orthoslices):
-                # imin, imax = calc_color_lims(orthoslice, mult=2)
-                ax.imshow(orthoslice, vmin=0, vmax=orthoslice.max(), cmap="gray")
+                imin, imax = calc_color_lims(orthoslice, mult=mult, height=height)
+                ax.imshow(orthoslice, vmin=imin, vmax=imax, cmap="gray")
 
             f.suptitle(sample_name)
 
