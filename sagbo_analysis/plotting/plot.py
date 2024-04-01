@@ -112,7 +112,7 @@ class SampleImagePlot:
 
         if save:
             f.savefig(
-                os.path.join(self.images, f"{fn}.png"), facecolor="white", dpi=300
+                os.path.join(self.images, f"{fn}.png"), facecolor="white", dpi=600
             )
 
     def _get_orthoslices(self, path: str):
@@ -167,5 +167,5 @@ class SampleImagePlot:
                 f.savefig(
                     os.path.join(self.images, f"{sample_name}.png"),
                     facecolor="white",
-                    dpi=300,
+                    dpi=600,
                 )
