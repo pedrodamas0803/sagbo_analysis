@@ -55,7 +55,7 @@ class SampleImagePlot:
 
         with h5py.File(path, "r") as hin:
             shape = hin["projections"].shape
-            proj = hin["projections"][shape[0] // 2]
+            proj = hin["projections"][shape[0] // 4]
         return proj, sample_name
 
     def get_projections(
