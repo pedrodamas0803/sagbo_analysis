@@ -138,7 +138,7 @@ class SampleImagePlot:
 
     def get_orthogonal_views(self, save: bool = True):
 
-        for file in self.selected_datasets:
+        for file in self.processing_paths:
 
             orthoslices, sample_name = self._get_orthoslices(path=file)
 
