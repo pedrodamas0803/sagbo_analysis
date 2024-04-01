@@ -143,7 +143,7 @@ class SampleImagePlot:
                 else:
                     tag = None
                     print("No reconstruction was found. Skipping. ")
-                    return
+
                 shape = hin[tag].shape
                 xy = hin[tag][shape[0] // 2, :, :]
                 xz = hin[tag][:, shape[1] // 2, :]
