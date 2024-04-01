@@ -130,22 +130,30 @@ class SampleImagePlot:
 
         sample_name = get_dataset_name(path)
 
-        with h5py.File(path, "r") as hin:
-            keys = list(hin.keys())
-            if "volPDHG" in keys:
-                tag = "volPDHG"
-            elif "volSIRT" in keys:
-                tag = "volSIRT"
-            elif "volFBP" in keys:
-                tag = "volFBP"
-            else:
-                tag = None
-                print("No reconstruction was found. Skipping. ")
-                return
-            shape = hin[tag].shape
-            xy = hin[tag][shape[0] // 2, :, :]
-            xz = hin[tag][:, shape[1] // 2, :]
-            yz = hin[tag][:, :, shape[2] // 2]
+        try:
+
+            with h5py.File(path, "r") as hin:
+                keys = list(hin.keys())
+                if "volPDHG" in keys:
+                    tag = "volPDHG"
+                elif "volSIRT" in keys:
+                    tag = "volSIRT"
+                elif "volFBP" in keys:
+                    tag = "volFBP"
+                else:
+                    tag = None
+                    print("No reconstruction was found. Skipping. ")
+                    return
+                shape = hin[tag].shape
+                xy = hin[tag][shape[0] // 2, :, :]
+                xz = hin[tag][:, shape[1] // 2, :]
+                yz = hin[tag][:, :, shape[2] // 2]
+
+        except Exception as e:
+            print(e)
+            xy = np.ones((2048, 2048))
+            xz = np.ones((2048, 2048))
+            yz = np.ones((2048, 2048))
 
         return [xy, xz, yz], sample_name
 
@@ -155,17 +163,7 @@ class SampleImagePlot:
 
         for file in self.processing_paths:
 
-            try:
-
-                orthoslices, sample_name = self._get_orthoslices(path=file)
-
-            except Exception as e:
-                print(e)
-                orthoslices = [
-                    np.zeros((2048, 2048)),
-                    np.zeros((2048, 2048)),
-                    np.zeros((2048, 2048)),
-                ]
+            orthoslices, sample_name = self._get_orthoslices(path=file)
 
             f, axs = plt.subplots(
                 1,
