@@ -53,14 +53,16 @@ class SampleImagePlot:
 
         sample_name = get_dataset_name(path)
         old_shape = (2048, 2048)
-        with h5py.File(path, "r") as hin:
-            try:
+
+        try:
+            with h5py.File(path, "r") as hin:
+
                 shape = hin["projections"].shape
                 old_shape = (shape[1], shape[2])
                 proj = hin["projections"][shape[0] // 4]
-            except Exception as e:
-                print(e)
-                proj = np.zeros(old_shape)
+        except Exception as e:
+            print(e)
+            proj = np.zeros(old_shape)
 
         return proj, sample_name
 
