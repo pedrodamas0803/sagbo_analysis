@@ -99,7 +99,7 @@ class SampleImagePlot:
         axs = axs.ravel()
 
         for ii, img in enumerate(images):
-            imin, imax = calc_color_lims(img, int=2)
+            imin, imax = calc_color_lims(img, mult=2)
 
             axs[ii].imshow(img, vmin=imin, vmax=imax, cmap="gray")
             axs[ii].set_axis_off()
@@ -145,12 +145,15 @@ class SampleImagePlot:
 
             orthoslices, sample_name = self._get_orthoslices(path=file)
 
-            f, axs = plt.subplots(1, 3)
+            f, axs = plt.subplots(
+                1,
+                3,
+            )
 
             axs = axs.ravel()
 
             for ax, orthoslice in zip(axs, orthoslices):
-                imin, imax = calc_color_lims(orthoslice, int=2)
+                imin, imax = calc_color_lims(orthoslice, mult=2)
                 ax.imshow(orthoslice, vmin=imin, vmax=imax, cmap="gray")
 
             f.suptitle(sample_name)
