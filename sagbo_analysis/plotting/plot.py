@@ -52,10 +52,16 @@ class SampleImagePlot:
     def _get_projection(self, path: str):
 
         sample_name = get_dataset_name(path)
-
+        old_shape = (2048, 2048)
         with h5py.File(path, "r") as hin:
-            shape = hin["projections"].shape
-            proj = hin["projections"][shape[0] // 4]
+            try:
+                shape = hin["projections"].shape
+                old_shape = (shape[1], shape[2])
+                proj = hin["projections"][shape[0] // 4]
+            except Exception as e:
+                print(e)
+                proj = np.zeros(old_shape)
+
         return proj, sample_name
 
     def get_projections(
@@ -147,7 +153,17 @@ class SampleImagePlot:
 
         for file in self.processing_paths:
 
-            orthoslices, sample_name = self._get_orthoslices(path=file)
+            try:
+
+                orthoslices, sample_name = self._get_orthoslices(path=file)
+
+            except Exception as e:
+                print(e)
+                orthoslices = [
+                    np.zeros((2048, 2048)),
+                    np.zeros((2048, 2048)),
+                    np.zeros((2048, 2048)),
+                ]
 
             f, axs = plt.subplots(
                 1,
