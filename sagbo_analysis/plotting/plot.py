@@ -93,7 +93,7 @@ class SampleImagePlot:
 
         nrows = int(np.ceil(len(images) / ncols))
 
-        f, axs = plt.subplots(nrows, ncols, sharex=True, sharey=True)
+        f, axs = plt.subplots(nrows, ncols, sharex=True, sharey=True, figsize=(16, 16))
 
         axs = axs.ravel()
 
