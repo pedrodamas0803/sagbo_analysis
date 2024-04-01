@@ -91,7 +91,7 @@ class SampleImagePlot:
         save: bool = True,
     ):
 
-        nrows = np.ceil(len(nimgs) / ncols)
+        nrows = np.ceil(len(images) / ncols)
 
         f, axs = plt.subplots(nrows, ncols, sharex=True, sharey=True)
 
