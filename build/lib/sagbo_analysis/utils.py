@@ -87,7 +87,7 @@ def find_peak_position(image, height=1e6, retrn_counts=False):
         return [(bins[peak], counts[peak]) for peak in peaks]
 
 
-def calc_color_lims(img, mult=3):
+def calc_color_lims(img, mult=3, height=1e6):
     """
     Calculates the upper and lower limits to plot an image with centered value on the brightest peak of the histogram.
 
@@ -98,7 +98,7 @@ def calc_color_lims(img, mult=3):
     Outputs
     vmin, vmax - tuple with the lower and upper limits.
     """
-    peaks = find_peak_position(img)
+    peaks = find_peak_position(img, height=height)
     vmin = peaks[-1] - mult * img.std()
     vmax = peaks[-1] + mult * img.std()
 

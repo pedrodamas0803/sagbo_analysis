@@ -7,7 +7,7 @@ import skimage as sk
 from .dvc_utils import read_config_file, get_dataset_name
 from .setup import DVC_Setup
 from .result import DVC_result
-from .mscript import uncertainty_mesh_size, uncertainty_lambda_size
+from .mscript import uncertainty_mesh_size, uncertainty_lambda_size, slurm_script
 
 
 class DVC_uncertainty(DVC_Setup):
@@ -40,11 +40,15 @@ class DVC_uncertainty(DVC_Setup):
 
     def _shift_volume(self, vol: np.ndarray, shifts: tuple):
 
+        '''
+        Shifts and returns the reference volume. Uses fisrt order splines to interpolate values and ensure coherency whith DVC code.
+        '''
+
         assert len(shifts) == vol.ndim
 
         dz, dy, dx = shifts
 
-        shifted_vol = ndi.shift(vol, shift=(dz, dy, dx))
+        shifted_vol = ndi.shift(vol, shift=(dz, dy, dx), order=1)
 
         return shifted_vol
 
@@ -141,8 +145,15 @@ class DVC_uncertainty(DVC_Setup):
         script = uncertainty_mesh_size(
             ref_im=self.ref_img_path, def_im=self.shifted_vol_path, roi=roi
         )
+
         with open(self.mesh_script_name, "w") as f:
             for line in script:
+                f.writelines(line)
+
+        mscript = slurm_script(self.mesh_script_name.strip('.m'))
+
+        with open('launch_mesh_unctty.slurm', 'w') as f:
+            for line in mscript:
                 f.writelines(line)
 
     def _write_lambda_script(self, mesh_size: int = 16):
@@ -159,6 +170,21 @@ class DVC_uncertainty(DVC_Setup):
         with open(self.lambda_script_name, "w") as f:
             for line in script:
                 f.writelines(line)
+
+        lscript = slurm_script(self.lambda_script_name.strip('.m'))
+        with open('launch_lambda_unctty.slurm', 'w') as f:
+            for line in lscript:
+                f.writelines(line)
+
+    def launch_slurm_script(self, which_script:str = 'mesh_size'):
+        if which_script not in ['mesh_size', 'lambda_size']:
+            print('Invalid script, try again!')
+        elif which_script == 'mesh_size':
+            os.system('sbatch launch_mesh_unctty.slurm')
+        elif which_script == 'lambda_size':
+            os.system('sbatch launch_lambda_unctty.slurm')
+
+            
 
 
 class DVC_uncertainty_summary(DVC_Setup):
