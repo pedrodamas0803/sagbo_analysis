@@ -102,7 +102,11 @@ def uncertainty_lambda_size(
 
 
 def slurm_script(script_name: str, partition: str = "nice-long", cpus_per_task: int = 40, mem_gb: int = 200, mail_type: str = "NONE", mail_address: [str, None] = None):  # type: ignore
-
+    try:
+        final_name = script_name.split('/')[-1]
+    except Exception as e:
+        print(e)
+        final_name = script_name
     assert partition in ["nice-long", "nice"]
 
     if mail_type not in ["NONE", "BEGIN", "END", "FAIL", "ALL"]:
@@ -137,6 +141,6 @@ def slurm_script(script_name: str, partition: str = "nice-long", cpus_per_task: 
         f"echo 'Number of Cores/Task Allocated = $SLURM_CPUS_PER_TASK'\n",
         f"\n",
         f"cd $(pwd)\n",
-        f"srun matlab -nodisplay -r '{script_name}'\n",
+        f"matlab -nodisplay -r '{final_name}'\n",
     ]
     return script

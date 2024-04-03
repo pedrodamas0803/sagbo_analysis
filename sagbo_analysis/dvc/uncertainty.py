@@ -41,7 +41,7 @@ class DVC_uncertainty(DVC_Setup):
     def _shift_volume(self, vol: np.ndarray, shifts: tuple):
 
         '''
-        Shifts and returns the reference volume. Uses fisrt order splines to interpolate values and ensure coherency whith DVC code.
+        Shifts and returns the reference volume. Uses first order splines to interpolate values and ensure coherency whith DVC code.
         '''
 
         assert len(shifts) == vol.ndim
@@ -62,7 +62,7 @@ class DVC_uncertainty(DVC_Setup):
 
         wrt_path = os.path.join(
             self.uncertainty_dir,
-            f"shifts_{d.year}{d.month}{d.day}{d.hour}h{d.minute}.txt",
+            f"shifts_{d.year}{d.month:02}{d.day:02}{d.hour:02}h{d.minute:02}.txt",
         )
 
         with open(wrt_path, "w") as f:
@@ -311,8 +311,8 @@ class DVC_uncertainty_summary(DVC_Setup):
             edgecolor="white",
             facecolor="white",
         )
-        choice = self.choose_mesh_size(mesh_size, std)
-        print(f"The lowest uncertainty level is at a mesh size = {choice}.")
+        # choice = self.choose_mesh_size(mesh_size, std)
+        # print(f"The lowest uncertainty level is at a mesh size = {choice}.")
 
     def lambda_size_summary(self):
 

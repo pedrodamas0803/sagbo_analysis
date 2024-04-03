@@ -41,8 +41,7 @@ def uncertainty_mesh_size(ref_im: str, def_im: str, roi: tuple, nscale: int = 1)
         f"    unix(['cp ' ,fullfile('TMP','0_error_0.mat'),' ', strrep(param.result_file,'.res','-error.res')]); \n",
         f"    load(fullfile('TMP','0_3d_mesh_0'),'Nnodes','Nelems','xo','yo','zo','conn','elt','ng','rint','Smesh','ns'); \n",
         f"    save(param.result_file,'U','Nnodes','Nelems','xo','yo','zo','param','model','nmod','conn','elt','ng','rint','Smesh','ns', 'Uini'); \n",
-        f"    postproVTK3D(param.result_file,0,1); \n",
-        f"    postproc(param.result_file) \n",
+        f"    postproVTK3D(param.result_file,0,1); \n",     
         f"end \n",
     ]
 
@@ -103,7 +102,11 @@ def uncertainty_lambda_size(
 
 
 def slurm_script(script_name: str, partition: str = "nice-long", cpus_per_task: int = 40, mem_gb: int = 200, mail_type: str = "NONE", mail_address: [str, None] = None):  # type: ignore
-
+    try:
+        final_name = script_name.split('/')[-1]
+    except Exception as e:
+        print(e)
+        final_name = script_name
     assert partition in ["nice-long", "nice"]
 
     if mail_type not in ["NONE", "BEGIN", "END", "FAIL", "ALL"]:
@@ -138,6 +141,6 @@ def slurm_script(script_name: str, partition: str = "nice-long", cpus_per_task: 
         f"echo 'Number of Cores/Task Allocated = $SLURM_CPUS_PER_TASK'\n",
         f"\n",
         f"cd $(pwd)\n",
-        f"srun matlab -nodisplay -r '{script_name}'\n",
+        f"matlab -nodisplay -r '{final_name}'\n",
     ]
     return script
