@@ -37,6 +37,20 @@ class DVC_uncertainty(DVC_Setup):
 
     def _generate_random_shifts(self):
         return np.random.random(size=3)
+    
+    def _clear_shifts(self):
+        '''
+        Clears shifted volume and shifts file.
+        '''
+        if os.path.exists(self.shifted_vol_path):
+            os.remove(self.shifted_vol_path)
+        
+        files = os.listdir(self.uncertainty_dir)
+
+        for file in files:
+            if 'shift' in file:
+                os.remove(file)
+
 
     def _shift_volume(self, vol: np.ndarray, shifts: tuple):
 
@@ -76,6 +90,8 @@ class DVC_uncertainty(DVC_Setup):
         sk.io.imsave(self.shifted_vol_path, vol, plugin="tifffile")
 
     def prepare_uncertainty_analysis(self):
+
+        self._clear_shifts()
 
         vol = self._import_reference_volume()
 
