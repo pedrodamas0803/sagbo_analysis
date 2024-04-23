@@ -1,17 +1,20 @@
-import os
+import os, concurrent.futures
 
 import h5py
 import numpy as np
 from dvc_preprocessing.preprocessing import crop_around_CoM, volume_CoM
 from skimage.exposure import rescale_intensity
 from skimage.io import imsave
+from skimage.morphology import binary_erosion, binary_dilation
+from skimage.filters import threshold_otsu
+import matplotlib.pyplot as plt 
 
 from ..utils import calc_color_lims
-from .postproc_utils import build_tiff_path, get_dataset_name, read_config_file
+from .postproc_utils import build_tiff_path, get_dataset_name, read_config_file, build_mask_path
 
-
+NTHREAD = os.cpu_count() - 2
 class PostProcessing:
-    def __init__(self, path: str, increment: int = 1, prop=0.5, mult=1):
+    def __init__(self, path: str, increment: int = 1, prop:float=0.5, mult:float=1, struct_size:int = 20):
         cfg = read_config_file(path)
 
         self.processing_dir = cfg["processing_dir"]
@@ -19,6 +22,7 @@ class PostProcessing:
         self.increment = increment
         self.prop = prop
         self.mult = mult
+        self.struct_size = struct_size
         # self.min32, self.max32 = self._calc_lims_32bit()
 
     @property
@@ -45,8 +49,8 @@ class PostProcessing:
 
     #     return imin, imax
 
-    def run_postprocessing(self):
-        for dataset in self.processing_paths:
+    def run_postprocessing(self, plot:bool = False):
+        for ii, dataset in enumerate(self.processing_paths):
             print(f"Processing {dataset}.")
             try:
                 vol = self._load_volume(path=dataset)
@@ -68,12 +72,21 @@ class PostProcessing:
             )
 
             # rotate to match DCT/sample env reconstruction
-
             rotated_img = np.rot90(rescaled_img, k=3, axes=(1, 2))
+
+            mask = self._calculate_mask(vol = rotated_img)
+
+            if plot:
+                self.plot_mask(mask)
+
+            if ii == 0:
+                imsave(build_mask_path(path = dataset), mask, plugin='tifffile', check_contrast=False)
+
+            final_image = mask * rotated_img
 
             save_path = build_tiff_path(dataset)
 
-            imsave(save_path, rotated_img, plugin="tifffile", check_contrast=False)
+            imsave(save_path, final_image, plugin="tifffile", check_contrast=False)
 
     def _load_volume(self, path: str):
         with h5py.File(path, "r") as hin:
@@ -84,3 +97,40 @@ class PostProcessing:
             else:
                 vol = hin["volFBP"][:].astype(np.float32)
         return vol
+    
+
+    def _calculate_mask(self, vol:np.ndarray):
+
+        mask = np.zeros_like(vol)
+        tmp = np.zeros_like(vol)
+
+        thrs = threshold_otsu(vol)
+
+        mask[vol > thrs] = np.iinfo(mask.dtype).max
+
+        def erode_it(slc:np.ndarray):
+            slc_dilated = binary_dilation(slc,  np.ones((self.struct_size, self.struct_size)))
+            slc_eroded = binary_erosion(slc_dilated, np.ones((2*self.struct_size, 2*self.struct_size)))
+            
+            return slc_eroded
+
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+
+            for ii, slc in enumerate(pool.map(erode_it, mask)):
+                tmp[ii] = slc
+
+        return mask
+    
+    @staticmethod
+    def plot_mask(mask:np.ndarray):
+
+        assert mask.ndim == 3
+
+        f, axs = plt.subplots(1, mask.ndim)
+
+        axs[0].imshow(mask[mask.shape[0]//2, :, :], cmap = 'gray')
+        axs[1].imshow(mask[:, mask.shape[1]//2, :], cmap = 'gray')
+        axs[2].imshow(mask[:, :, mask.shape[2]//2], cmap = 'gray')
+
+        f.tight_layout()
+        plt.show()

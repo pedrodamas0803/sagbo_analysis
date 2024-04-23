@@ -23,3 +23,7 @@ def get_dataset_name(path: str):
 def build_tiff_path(path:str):
 
     return os.path.splitext(path)[0]+'.tiff'
+
+def build_mask_path(path:str):
+
+    return os.path.splitext(path)[0]+'_mask.tiff'

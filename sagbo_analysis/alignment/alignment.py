@@ -110,7 +110,16 @@ class ProjectionAlignment:
                     print("Something went wrong, continuing.")
 
             if is_return:
-                self._update_h5(path=proc_path, projs=projs, angles=angles_rad)
+                self._update_reverse_scan(path=proc_path)
+
+                try:
+                    projs, angles_rad, is_aligned, is_return = self._load_data(
+                        path=proc_path, xprop=xprop
+                )
+                except Exception as e:
+                    print(e)
+                    print("Tour scan is probably broken, going to the next.")
+                    continue
 
             if not is_aligned:
                 projs_bin = binning(projs)
@@ -255,11 +264,12 @@ class ProjectionAlignment:
             else:
                 hout["shifts"][...] = shifts
 
-    def _update_h5(self, path: str, projs: np.ndarray, angles: np.array):
+    def _update_reverse_scan(self, path: str):
         with h5py.File(path, "a") as hout:
-            # projs = hout["projections"][:]
-            # angles = hout["angles"][:]
-
-            hout["projections"][...] = projs
-            hout["angles"][...] = angles
+            projs = hout["projections"][:]
+            angles = hout["angles"][:]
+            tmp_prj = projs.copy()
+            tmp_ang = angles.copy()
+            hout["projections"][...] = np.flip(tmp_prj, axis = (0, 1))
+            hout["angles"][...] = np.flip(tmp_ang, axis=0)
             print("Updated reverse scan !")
