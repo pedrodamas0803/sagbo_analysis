@@ -16,6 +16,7 @@ from skimage.exposure import rescale_intensity
 from skimage.io import imread, imsave
 from skimage.filters import threshold_otsu
 from skimage.measure import marching_cubes
+from skimage.morphology import binary_erosion, binary_dilation
 
 # import networkx
 from dvc_preprocessing.preprocessing import crop_around_CoM, volume_CoM
@@ -82,7 +83,7 @@ class Meshing:
         self.datasets = cfg["datasets"]
         self.overwrite = True if cfg["overwrite"] == True else False
         self.energy = float(cfg["energy"])
-        self.distance_entry = cfg["distance_entry"]
+        self.dimaskstance_entry = cfg["distance_entry"]
         self.pixel_size_m = float(cfg["pixel_size_m"])
         self.delta_beta = float(delta_beta)
         self._reference_volume = reference_volume
@@ -443,6 +444,32 @@ class Meshing:
         self._mesh_surface(vertices_s=vertices, triangles_s=triangles)
 
         self._mesh_volume()
+
+    def generate_mask(self, save:bool = True):
+        volFBP = self._reconstruct()
+        print('Reconstructed your volume ! ')
+        volume = self._vol_post_processing(volume=volFBP)
+        print('Finished post processing! ')
+        mask = np.zeros(volume.shape, dtype = np.uint8)
+        thrs = threshold_otsu(volume)
+        mask[np.where(volume > thrs)] = np.iinfo(mask.dtype).max
+
+        def fill_it(slc:np.ndarray):
+            filled = binary_dilation(slc, footprint=np.ones((self.struct_size,self.struct_size,self.struct_size)))
+            filled = binary_erosion(filled, footprint=np.ones((self.struct_size,self.struct_size,self.struct_size)))
+            return filled
+        
+        final_mask = np.zeros_like(mask)
+        with concurrent.futures.ProcessPoolExecutor() as pool:
+            for ii, result in enumerate(pool.map(fill_it, mask)):
+                final_mask[ii] = result
+        
+        if save:
+            imsave(self.mask_path, final_mask, plugin='tifffile')
+            print('Saved mask ! ')
+        else:
+            return final_mask     
+
 
     def _clean_meshing_dir(self, remove_h5: bool = False):
         for filename in os.listdir(self.mesh_dir):
