@@ -83,7 +83,7 @@ class Meshing:
         self.datasets = cfg["datasets"]
         self.overwrite = True if cfg["overwrite"] == True else False
         self.energy = float(cfg["energy"])
-        self.dimaskstance_entry = cfg["distance_entry"]
+        self.distance_entry = cfg["distance_entry"]
         self.pixel_size_m = float(cfg["pixel_size_m"])
         self.delta_beta = float(delta_beta)
         self._reference_volume = reference_volume
