@@ -54,6 +54,7 @@ class DVC_Setup:
     def uncertainty_dir(self):
         return os.path.join(self.dvc_dir, "uncertainty")
 
+
     def build_folder_structure(self):
         try:
             os.mkdir(self.dvc_dir)
@@ -69,15 +70,16 @@ class DVC_Setup:
         self._link_mask()
 
     def _link_mask(self):
-        mask_path = glob.glob(os.path.join(self.meshing_dir, '*mask.tiff'))
+        mask_path = glob.glob(os.path.join(self.meshing_dir, '*.tiff'))
 
         for mask in mask_path:
-            dst = os.path.join(self.dvc_dir, os.path.basename(mask))
-            if not os.path.exists(dst):
-                os.symlink(src=mask, dst=dst)
-            else:
-                os.remove(dst)
-                os.symlink(src=mask, dst=dst)
+            if 'mask' in mask:
+                dst = os.path.join(self.dvc_dir, os.path.basename(mask))
+                if not os.path.exists(dst):
+                    os.symlink(src=mask, dst=dst)
+                else:
+                    os.remove(dst)
+                    os.symlink(src=mask, dst=dst)
 
     def _link_vtks(self):
         vtks = glob.glob(os.path.join(self.meshing_dir, "*.vtk"))
@@ -92,7 +94,8 @@ class DVC_Setup:
 
     def _link_images(self):
         for dataset in self.processing_paths:
-            tiff_name = f"{os.path.splitext(dataset)[0]}.tiff"
+            filename, _ = os.path.splitext(dataset)
+            tiff_name = f"{filename}.tiff"
             dst = os.path.join(self.dvc_dir, os.path.basename(tiff_name))
 
             try:
