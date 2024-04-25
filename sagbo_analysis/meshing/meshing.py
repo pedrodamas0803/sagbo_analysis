@@ -111,8 +111,8 @@ class Meshing:
         )
         self.mask_path = self.tiff_path.strip(".tiff") + "_mask.tiff"
 
-        if redo:
-            self._clean_meshing_dir(remove_h5=True)
+        # if redo:
+        #     self._clean_meshing_dir(remove_h5=True)
 
         self._check_mesh_dir()
 
@@ -465,34 +465,53 @@ class Meshing:
 
         self._mesh_volume()
 
-    def generate_mask(self, save: bool = True):
-        volFBP = self._reconstruct()
-        print('Reconstructed your volume ! ')
-        volume = self._vol_post_processing(volume=volFBP)
-        print('Finished post processing! ')
+    def generate_mask(self):
+        if not os.path.exists(self.h5_path) or self.redo:
+            volFBP = self._reconstruct()
+            print('Reconstructed your volume ! ')
+        if not os.path.exists(self.tiff_path):
+            volume = self._vol_post_processing(volume=volFBP)
+            print('Finished post processing! ')
+        else:
+            print('Tiff volume already exists, loading it from file.')
+            volume = imread(self.tiff_path, plugin = 'tifffile')
+            print('Loaded tiff volume from file.')
+
         mask = np.zeros(volume.shape, dtype=bool)
         thrs = threshold_otsu(volume)
         whr = np.where(volume > thrs)
         mask[whr] = True
         print('Generated initial mask !')
 
-        def fill_it(slc: np.ndarray):
-            footprt = slc.ndim * (self.struct_size[0], )
-            filled = binary_dilation(slc, footprint=np.ones(footprt))
-            filled = binary_erosion(filled, footprint=np.ones(footprt))
-            return filled
-
         final_mask = np.zeros_like(mask)
 
         with concurrent.futures.ProcessPoolExecutor(os.cpu_count()-2) as pool:
-            for ii, result in enumerate(pool.map(fill_it, mask)):
+            for ii, result in enumerate(pool.map(self.dilate_it, mask)):
                 final_mask[ii] = result
+        print('Finished binary dilation .')
 
-        if save:
-            imsave(self.mask_path, final_mask.astype(np.uint8), plugin='tifffile')
-            print('Saved mask ! ')
+        mask = np.zeros_like(mask)
 
-        return final_mask
+        with concurrent.futures.ProcessPoolExecutor(os.cpu_count()-2) as pool:
+            for ii, result in enumerate(pool.map(self.erode_it, final_mask)):
+                mask[ii] = result
+        print('Finished binary erosion')
+
+        rescaled_mask = rescale_intensity(mask, in_range = (0, 1), out_range = np.uint8)
+
+        imsave(self.mask_path, rescaled_mask, plugin='tifffile')
+        print('Saved mask ! ')
+
+        return mask
+
+    @staticmethod
+    def dilate_it(slc: np.ndarray):
+        return binary_dilation(slc, footprint=np.ones((7,7)))
+
+    @staticmethod
+    def erode_it(slc: np.ndarray):
+        return binary_erosion(slc, footprint=np.ones((7,7)))
+
 
     def _clean_meshing_dir(self, remove_h5: bool = False):
         for filename in os.listdir(self.mesh_dir):
