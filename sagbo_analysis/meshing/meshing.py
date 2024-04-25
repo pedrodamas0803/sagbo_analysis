@@ -111,7 +111,8 @@ class Meshing:
         )
         self.mask_path = self.tiff_path.strip(".tiff") + "_mask.tiff"
 
-        # if redo:
+        self.redo = True if redo else False
+        #if redo:
         #     self._clean_meshing_dir(remove_h5=True)
 
         self._check_mesh_dir()
