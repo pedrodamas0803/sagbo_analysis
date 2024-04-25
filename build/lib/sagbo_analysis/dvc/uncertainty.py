@@ -37,26 +37,25 @@ class DVC_uncertainty(DVC_Setup):
 
     def _generate_random_shifts(self):
         return np.random.random(size=3)
-    
+
     def _clear_shifts(self):
-        '''
+        """
         Clears shifted volume and shifts file.
-        '''
+        """
         if os.path.exists(self.shifted_vol_path):
             os.remove(self.shifted_vol_path)
-        
+
         files = os.listdir(self.uncertainty_dir)
 
         for file in files:
             if 'shift' in file:
                 os.remove(file)
 
-
     def _shift_volume(self, vol: np.ndarray, shifts: tuple):
 
-        '''
+        """
         Shifts and returns the reference volume. Uses first order splines to interpolate values and ensure coherency whith DVC code.
-        '''
+        """
 
         assert len(shifts) == vol.ndim
 
@@ -192,16 +191,13 @@ class DVC_uncertainty(DVC_Setup):
             for line in lscript:
                 f.writelines(line)
 
-
-    def launch_slurm_script(self, which_script:str = 'mesh_size'):
+    def launch_slurm_script(self, which_script: str = 'mesh_size'):
         if which_script not in ['mesh_size', 'lambda_size']:
             print('Invalid script, try again!')
         elif which_script == 'mesh_size':
             os.system('sbatch launch_mesh_unctty.slurm')
         elif which_script == 'lambda_size':
             os.system('sbatch launch_lambda_unctty.slurm')
-
-            
 
 
 class DVC_uncertainty_summary(DVC_Setup):

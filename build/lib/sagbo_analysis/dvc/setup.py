@@ -1,6 +1,7 @@
-import os, glob
+import os
+import glob
 from datetime import datetime
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.ndimage as ndi
 import skimage as sk
@@ -11,10 +12,11 @@ from .mscript import uncertainty_mesh_size, uncertainty_lambda_size
 
 
 class DVC_Setup:
-    # """
-    # Class that reads a configuration file and sets up the directory structure to run DVC.
 
-    # """
+    """
+    Class that reads a configuration file and sets up the directory structure to run DVC.
+
+    """
 
     def __init__(self, config_file: str, increment: int = 1) -> None:
         cfg = read_config_file(path=config_file)
@@ -64,6 +66,18 @@ class DVC_Setup:
 
         self._link_vtks()
         self._link_images()
+        self._link_mask()
+
+    def _link_mask(self):
+        mask_path = glob.glob(os.path.join(self.meshing_dir, '*mask.tiff'))
+
+        for mask in mask_path:
+            dst = os.path.join(self.dvc_dir, os.path.basename(mask))
+            if not os.path.exists(dst):
+                os.symlink(src=mask, dst=dst)
+            else:
+                os.remove(dst)
+                os.symlink(src=mask, dst=dst)
 
     def _link_vtks(self):
         vtks = glob.glob(os.path.join(self.meshing_dir, "*.vtk"))
@@ -78,7 +92,7 @@ class DVC_Setup:
 
     def _link_images(self):
         for dataset in self.processing_paths:
-            tiff_name = f"{dataset.strip('.h5')}.tiff"
+            tiff_name = f"{os.path.splitext(dataset)[0]}.tiff"
             dst = os.path.join(self.dvc_dir, os.path.basename(tiff_name))
 
             try:
