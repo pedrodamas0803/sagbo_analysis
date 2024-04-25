@@ -92,7 +92,7 @@ class DVC_Setup:
 
     def _link_images(self):
         for dataset in self.processing_paths:
-            tiff_name = f"{dataset.strip('.h5')}.tiff"
+            tiff_name = f"{os.path.splitext(dataset)[0]}.tiff"
             dst = os.path.join(self.dvc_dir, os.path.basename(tiff_name))
 
             try:
