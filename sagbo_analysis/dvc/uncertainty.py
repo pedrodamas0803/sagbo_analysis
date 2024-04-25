@@ -1,13 +1,16 @@
-import os, glob, csv
+import csv
+import glob
+import os
 from datetime import datetime
-from matplotlib import pyplot as plt
+
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.ndimage as ndi
 import skimage as sk
-from .dvc_utils import read_config_file, get_dataset_name
-from .setup import DVC_Setup
-from .result import DVC_result
+
 from .mscript import uncertainty_mesh_size, uncertainty_lambda_size, slurm_script
+from .result import DVC_result
+from .setup import DVC_Setup
 
 
 class DVC_uncertainty(DVC_Setup):
