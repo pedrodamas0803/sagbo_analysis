@@ -5,5 +5,5 @@ env/
 tests/
 .vscode
 .idea
-build
+build/*
 dist

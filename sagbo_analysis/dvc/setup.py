@@ -74,10 +74,10 @@ class DVC_Setup:
 
         for mask in mask_path:
             dst = os.path.join(self.dvc_dir, os.path.basename(mask))
-            if not os.path.exists(dst):
+            if os.path.exists(dst):
+                os.remove(dst)
                 os.symlink(src=mask, dst=dst)
             else:
-                os.remove(dst)
                 os.symlink(src=mask, dst=dst)
 
     def _link_vtks(self):
@@ -85,21 +85,25 @@ class DVC_Setup:
 
         for vtk in vtks:
             dst = os.path.join(self.dvc_dir, os.path.basename(vtk))
-            if not os.path.exists(dst):
+            if os.path.exists(dst):
+                os.remove(dst)
                 os.symlink(src=vtk, dst=dst)
             else:
-                os.remove(dst)
                 os.symlink(src=vtk, dst=dst)
 
     def _link_images(self):
         for dataset in self.processing_paths:
+            print('Dataset', dataset)
             filename, _ = os.path.splitext(dataset)
+            print('Filename', filename)
             tiff_name = f"{filename}.tiff"
+            print('Tiff name', tiff_name)
             dst = os.path.join(self.dvc_dir, os.path.basename(tiff_name))
+            print('Destination', dst)
 
-            if not os.path.exists(dst):
+            if os.path.exists(dst):
+                os.remove(dst)
                 os.symlink(src=tiff_name, dst=dst)
             else:
-                os.remove(dst)
                 os.symlink(src=tiff_name, dst=dst)
 
