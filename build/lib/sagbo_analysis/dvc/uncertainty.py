@@ -192,6 +192,7 @@ class DVC_uncertainty(DVC_Setup):
             for line in lscript:
                 f.writelines(line)
 
+
     def launch_slurm_script(self, which_script:str = 'mesh_size'):
         if which_script not in ['mesh_size', 'lambda_size']:
             print('Invalid script, try again!')

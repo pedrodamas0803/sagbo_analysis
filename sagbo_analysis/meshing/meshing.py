@@ -503,7 +503,7 @@ class Meshing:
         imsave(self.mask_path, rescaled_mask, plugin='tifffile')
         print('Saved mask ! ')
 
-        return mask
+        return rescaled_mask
 
     @staticmethod
     def dilate_it(slc: np.ndarray):
