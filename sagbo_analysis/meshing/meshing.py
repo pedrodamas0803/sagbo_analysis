@@ -473,7 +473,7 @@ class Meshing:
         mask = np.zeros(volume.shape, dtype=bool)
         thrs = threshold_otsu(volume)
         whr = np.where(volume > thrs)
-        mask[whr] = np.iinfo(mask.dtype).max
+        mask[whr] = True
         print('Generated initial mask !')
 
         def fill_it(slc: np.ndarray):
@@ -489,7 +489,7 @@ class Meshing:
                 final_mask[ii] = result
 
         if save:
-            imsave(self.mask_path, final_mask, plugin='tifffile')
+            imsave(self.mask_path, final_mask.astype(np.uint8), plugin='tifffile')
             print('Saved mask ! ')
 
         return final_mask
