@@ -509,11 +509,11 @@ class Meshing:
 
     @staticmethod
     def dilate_it(slc: np.ndarray):
-        return binary_dilation(slc, footprint=np.ones((7,7)))
+        return binary_dilation(slc, footprint=np.ones((25,25)))
 
     @staticmethod
     def erode_it(slc: np.ndarray):
-        return binary_erosion(slc, footprint=np.ones((7,7)))
+        return binary_erosion(slc, footprint=np.ones((25, 25)))
 
 
     def _clean_meshing_dir(self, remove_h5: bool = False):
