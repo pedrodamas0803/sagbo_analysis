@@ -38,7 +38,8 @@ class DVC_uncertainty(DVC_Setup):
         vol = sk.io.imread(self.ref_img_path, plugin="tifffile")
         return vol
 
-    def _generate_random_shifts(self):
+    @staticmethod
+    def _generate_random_shifts():
         return np.random.random(size=3)
 
     def _clear_shifts(self):
@@ -54,10 +55,12 @@ class DVC_uncertainty(DVC_Setup):
             if 'shift' in file:
                 os.remove(file)
 
-    def _shift_volume(self, vol: np.ndarray, shifts: tuple):
+    @staticmethod
+    def _shift_volume(vol: np.ndarray, shifts: tuple):
 
         """
-        Shifts and returns the reference volume. Uses first order splines to interpolate values and ensure coherency whith DVC code.
+        Shifts and returns the reference volume. Uses first order splines to
+        interpolate values and ensure coherency with DVC code.
         """
 
         assert len(shifts) == vol.ndim
@@ -194,7 +197,8 @@ class DVC_uncertainty(DVC_Setup):
             for line in lscript:
                 f.writelines(line)
 
-    def launch_slurm_script(self, which_script: str = 'mesh_size'):
+    @staticmethod
+    def launch_slurm_script(which_script: str = 'mesh_size'):
         if which_script not in ['mesh_size', 'lambda_size']:
             print('Invalid script, try again!')
         elif which_script == 'mesh_size':

@@ -12,7 +12,6 @@ from .mscript import uncertainty_mesh_size, uncertainty_lambda_size
 
 
 class DVC_Setup:
-
     """
     Class that reads a configuration file and sets up the directory structure to run DVC.
 
@@ -53,7 +52,6 @@ class DVC_Setup:
     @property
     def uncertainty_dir(self):
         return os.path.join(self.dvc_dir, "uncertainty")
-
 
     def build_folder_structure(self):
         try:
@@ -106,4 +104,3 @@ class DVC_Setup:
                 os.symlink(src=tiff_name, dst=dst)
             else:
                 os.symlink(src=tiff_name, dst=dst)
-
