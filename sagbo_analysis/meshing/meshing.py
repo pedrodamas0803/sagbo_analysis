@@ -500,12 +500,12 @@ class Meshing:
 
         rescaled_mask = rescale_intensity(mask, in_range = (0, 1), out_range = np.uint8)
 
-        rotated_mask = np.rot90(rescaled_mask, k=3, axes=(1, 2))
+        # rotated_mask = np.rot90(rescaled_mask, k=3, axes=(1, 2))
 
-        imsave(self.mask_path, rotated_mask, plugin='tifffile')
+        imsave(self.mask_path, rescaled_mask, plugin='tifffile')
         print('Saved mask ! ')
 
-        return rotated_mask
+        return rescaled_mask
 
     @staticmethod
     def dilate_it(slc: np.ndarray):
