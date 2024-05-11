@@ -111,13 +111,13 @@ class PostProcessing:
 
         with concurrent.futures.ProcessPoolExecutor() as pool:
 
-            for ii, slc in enumerate(pool.map(self.dilate_it, mask)):
-                tmp[ii] = slc
+            for ii, result in enumerate(pool.map(self.dilate_it, mask)):
+                tmp[ii] = result
         
         with concurrent.futures.ProcessPoolExecutor() as pool:
 
-            for ii, slc in enumerate(pool.map(self.erode_it, tmp)):
-                mask[ii] = slc
+            for ii, result in enumerate(pool.map(self.erode_it, tmp)):
+                mask[ii] = result
 
         return mask
     
@@ -137,10 +137,10 @@ class PostProcessing:
 
 
     @staticmethod
-    def erode_it(self, slc:np.ndarray):
-        return binary_erosion(slc, np.ones((self.struct_size, self.struct_size)))
+    def erode_it(slc:np.ndarray):
+        return binary_erosion(slc, np.ones((25, 25)))
     
     @staticmethod
-    def dilate_it(self, slc:np.ndarray):
-        return binary_dilation(slc, np.ones((self.struct_size, self.struct_size)))
+    def dilate_it(slc:np.ndarray):
+        return binary_dilation(slc, np.ones((25, 25)))
 
