@@ -69,6 +69,7 @@ class DVC_Setup:
 
     def _link_mask(self):
         mask_path = glob.glob(os.path.join(self.meshing_dir, '*mask*'))
+        print(f'Mask might exist in {mask_path}.')
 
         for mask in mask_path:
             dst = os.path.join(self.dvc_dir, os.path.basename(mask))
