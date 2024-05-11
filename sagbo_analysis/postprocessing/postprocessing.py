@@ -13,10 +13,11 @@ from ..utils import calc_color_lims
 from .postproc_utils import build_tiff_path, get_dataset_name, read_config_file, build_mask_path
 
 NTHREAD = os.cpu_count() - 2
+
 class PostProcessing:
     def __init__(self, path: str, increment: int = 1, prop:float=0.5, mult:float=1, struct_size:int = 20):
         cfg = read_config_file(path)
-
+        
         self.processing_dir = cfg["processing_dir"]
         self.datasets = cfg["datasets"]
         self.increment = increment
@@ -108,16 +109,15 @@ class PostProcessing:
 
         mask[vol > thrs] = np.iinfo(mask.dtype).max
 
-        def erode_it(slc:np.ndarray):
-            slc_dilated = binary_dilation(slc,  np.ones((self.struct_size, self.struct_size)))
-            slc_eroded = binary_erosion(slc_dilated, np.ones((2*self.struct_size, 2*self.struct_size)))
-            
-            return slc_eroded
+        with concurrent.futures.ProcessPoolExecutor() as pool:
 
-        with concurrent.futures.ThreadPoolExecutor() as pool:
-
-            for ii, slc in enumerate(pool.map(erode_it, mask)):
+            for ii, slc in enumerate(pool.map(self.dilate_it, mask)):
                 tmp[ii] = slc
+        
+        with concurrent.futures.ProcessPoolExecutor() as pool:
+
+            for ii, slc in enumerate(pool.map(self.erode_it, tmp)):
+                mask[ii] = slc
 
         return mask
     
@@ -134,3 +134,13 @@ class PostProcessing:
 
         f.tight_layout()
         plt.show()
+
+
+    @staticmethod
+    def erode_it(self, slc:np.ndarray):
+        return binary_erosion(slc, np.ones((self.struct_size, self.struct_size)))
+    
+    @staticmethod
+    def dilate_it(self, slc:np.ndarray):
+        return binary_dilation(slc, np.ones((self.struct_size, self.struct_size)))
+
