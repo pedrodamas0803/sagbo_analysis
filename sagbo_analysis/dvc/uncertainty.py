@@ -10,7 +10,7 @@ import skimage as sk
 
 from .mscript import uncertainty_mesh_size, uncertainty_lambda_size, slurm_script
 from .result import DVC_result
-from .setup import DVC_Setup
+from .dvc_setup import DVC_Setup
 
 
 class DVC_uncertainty(DVC_Setup):
