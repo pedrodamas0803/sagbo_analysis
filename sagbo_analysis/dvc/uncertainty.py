@@ -160,7 +160,7 @@ class DVC_uncertainty(DVC_Setup):
             max_depth,
         )
 
-    def _write_mesh_script(self):
+    def write_mesh_script(self):
 
         roi = self._get_roi()
         script = uncertainty_mesh_size(
@@ -173,11 +173,11 @@ class DVC_uncertainty(DVC_Setup):
 
         mscript = slurm_script(self.mesh_script_name.strip('.m'))
 
-        with open('launch_mesh_unctty.slurm', 'w') as f:
+        with open(os.path.join(self.uncertainty_dir, 'launch_mesh_unctty.slurm'), 'w') as f:
             for line in mscript:
                 f.writelines(line)
 
-    def _write_lambda_script(self, mesh_size: int = 16):
+    def write_lambda_script(self, mesh_size: int = 16):
 
         roi = self._get_roi()
         # mesh_size = self._guess_mesh_size()
@@ -193,18 +193,23 @@ class DVC_uncertainty(DVC_Setup):
                 f.writelines(line)
 
         lscript = slurm_script(self.lambda_script_name.strip('.m'))
-        with open('launch_lambda_unctty.slurm', 'w') as f:
+        with open(os.path.join(self.uncertainty_dir, 'launch_lambda_unctty.slurm'), 'w') as f:
             for line in lscript:
                 f.writelines(line)
 
-    @staticmethod
-    def launch_slurm_script(which_script: str = 'mesh_size'):
+    def launch_slurm_script(self, which_script: str = 'mesh_size'):
+        '''
+        Which script can be mesh_size or lambda_size.
+        '''
+        mesh_script = os.path.join(self.uncertainty_dir, 'launch_mesh_unctty.slurm')
+        lambda_script = os.path.join(self.uncertainty_dir, 'launch_lambda_unctty.slurm')
+
         if which_script not in ['mesh_size', 'lambda_size']:
             print('Invalid script, try again!')
         elif which_script == 'mesh_size':
-            os.system('sbatch launch_mesh_unctty.slurm')
+            os.system(f'sbatch {mesh_script}')
         elif which_script == 'lambda_size':
-            os.system('sbatch launch_lambda_unctty.slurm')
+            os.system(f'sbatch {lambda_script}')
 
 
 class DVC_uncertainty_summary(DVC_Setup):
