@@ -1,4 +1,4 @@
-def uncertainty_mesh_size(ref_im: str, def_im: str, roi: tuple, nscale: int = 1):
+def uncertainty_mesh_size(ref_im: str, def_im: str, mask_im:str, roi: tuple, nscale: int = 1):
 
     assert len(roi) == 6
 
@@ -9,6 +9,7 @@ def uncertainty_mesh_size(ref_im: str, def_im: str, roi: tuple, nscale: int = 1)
         f"    param.analysis='correlation'; \n",
         f"    param.reference_image='{ref_im}';\n",
         f"    param.deformed_image = '{def_im}';\n",
+        f"    param.mask_file = '{mask_im}';\n",
         f"    param.restart=0; \n",
         f"    param.result_file=sprintf('unctty_mesh_%d.res', mesh_size); \n",
         f"    param.roi=[{xmin}, {xmax}, {ymin}, {ymax}, {zmin}, {zmax}]; \n",
@@ -49,7 +50,7 @@ def uncertainty_mesh_size(ref_im: str, def_im: str, roi: tuple, nscale: int = 1)
 
 
 def uncertainty_lambda_size(
-    ref_im: str, def_im: str, mesh_size: int, roi: tuple, nscale: int = 1
+    ref_im: str, def_im: str, mask_im:str, mesh_size: int, roi: tuple, nscale: int = 1
 ):
 
     assert len(roi) == 6
@@ -62,6 +63,7 @@ def uncertainty_lambda_size(
         f"    param.analysis='correlation'; \n",
         f"    param.reference_image='{ref_im}';\n",
         f"    param.deformed_image = '{def_im}';\n",
+        f"    param.mask_file = '{mask_im}';\n",
         f"    param.restart=0; \n",
         f"    param.result_file=sprintf('unctty_lambda_%d.res', lambda); \n",
         f"    param.roi=[{xmin}, {xmax}, {ymin}, {ymax}, {zmin}, {zmax}]; \n",

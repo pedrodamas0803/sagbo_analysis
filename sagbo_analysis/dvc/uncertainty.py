@@ -25,6 +25,10 @@ class DVC_uncertainty(DVC_Setup):
     @property
     def shifted_vol_path(self):
         return f"{os.path.splitext(self.ref_img_path)[0]}_shifted.tiff"
+    
+    @property
+    def mask_vol_path(self):
+        return f"{os.path.splitext(self.ref_img_path)[0]}_mask.tiff"
 
     @property
     def mesh_script_name(self):
@@ -118,53 +122,74 @@ class DVC_uncertainty(DVC_Setup):
 
     def _get_roi(self, plot_image: bool = False):
 
-        vol = self._import_reference_volume()
+        if not os.path.exists(self.mask_vol_path):
 
-        nz, ny, nx = vol.shape
+            vol = self._import_reference_volume()
 
-        flatened = np.max(vol, axis=0)
+            nz, ny, nx = vol.shape
 
-        thrs = sk.filters.threshold_otsu(flatened)
+            flatened = np.max(vol, axis=0)
 
-        mask = np.zeros(flatened.shape, np.uint8)
+            thrs = sk.filters.threshold_otsu(flatened)
 
-        mask[flatened >= thrs] = 255
+            mask = np.zeros(flatened.shape, np.uint8)
 
-        mask = sk.morphology.binary_erosion(mask, footprint=np.ones((150, 150)))
+            mask[flatened >= thrs] = 255
 
-        mask = sk.morphology.binary_dilation(mask, footprint=np.ones((15, 15)))
+            mask = sk.morphology.binary_erosion(mask, footprint=np.ones((150, 150)))
 
-        labeled = sk.measure.label(mask)
+            mask = sk.morphology.binary_dilation(mask, footprint=np.ones((15, 15)))
 
-        props = sk.measure.regionprops(labeled)
+            labeled = sk.measure.label(mask)
 
-        min_row, min_col, max_row, max_col = props[0].bbox
+            props = sk.measure.regionprops(labeled)
 
-        min_depth = int(nz // 2 - nz // 4)
+            min_row, min_col, max_row, max_col = props[0].bbox
 
-        max_depth = int(nz // 2 + nz // 4)
+            min_depth = int(nz // 2 - nz // 4)
 
-        if plot_image:
-            plt.figure()
-            plt.imshow(flatened, cmap="gray")
-            plt.hlines([min_row, max_row], min_col, max_col)
-            plt.vlines([min_col, max_col], min_row, max_row)
-            plt.show()
+            max_depth = int(nz // 2 + nz // 4)
 
-        return (
-            int(1.1 * min_col),
-            int(0.9 * max_col),
-            int(1.1 * min_row),
-            int(0.9 * max_row),
-            min_depth,
-            max_depth,
-        )
+            if plot_image:
+                plt.figure()
+                plt.imshow(flatened, cmap="gray")
+                plt.hlines([min_row, max_row], min_col, max_col)
+                plt.vlines([min_col, max_col], min_row, max_row)
+                plt.show()
+
+            return (
+                int(1.1 * min_col),
+                int(0.9 * max_col),
+                int(1.1 * min_row),
+                int(0.9 * max_row),
+                min_depth,
+                max_depth,
+            )
+        else:
+
+            vol = self._import_reference_volume()
+
+            nz, ny, nx = vol.shape
+
+            min_depth = int(nz // 2 - nz // 4)
+
+            max_depth = int(nz // 2 + nz // 4)
+
+            if plot_image:
+                plt.figure()
+                plt.imshow(flatened, cmap="gray")
+                plt.hlines([30, nx-30], min_col, max_col)
+                plt.vlines([30, nx-30], min_row, max_row)
+                plt.show()
+
+            return (int(30), int(nx-30), int(30), int(ny-30), min_depth, max_depth)
+        
 
     def write_mesh_script(self):
 
         roi = self._get_roi()
         script = uncertainty_mesh_size(
-            ref_im=self.ref_img_path, def_im=self.shifted_vol_path, roi=roi
+            ref_im=self.ref_img_path, def_im=self.shifted_vol_path, mask_im=self.mask_vol_path, roi=roi
         )
 
         with open(self.mesh_script_name, "w") as f:
@@ -184,6 +209,7 @@ class DVC_uncertainty(DVC_Setup):
         script = uncertainty_lambda_size(
             ref_im=self.ref_img_path,
             def_im=self.shifted_vol_path,
+            mask_im=self.mask_vol_path,
             mesh_size=mesh_size,
             roi=roi,
         )
