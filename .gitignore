@@ -6,4 +6,4 @@ tests/
 .vscode
 .idea
 build/*
-dist
+dist/*
