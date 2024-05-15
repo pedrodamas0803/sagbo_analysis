@@ -69,7 +69,7 @@ class DVC_Setup:
 
     def _link_mask(self):
         mask_path = glob.glob(os.path.join(self.meshing_dir, '*mask*'))
-        print(f'Possible masks in {mask_path}.')
+        # print(f'Possible masks in {mask_path}.')
 
         for mask in mask_path:
             dst = os.path.join(self.dvc_dir, os.path.basename(mask))
@@ -78,6 +78,8 @@ class DVC_Setup:
                 os.symlink(src=mask, dst=dst)
             else:
                 os.symlink(src=mask, dst=dst)
+            
+            print(f'Linked {mask} !')
 
     def _link_vtks(self):
         vtks = glob.glob(os.path.join(self.meshing_dir, "*.vtk"))
@@ -89,22 +91,24 @@ class DVC_Setup:
                 os.symlink(src=vtk, dst=dst)
             else:
                 os.symlink(src=vtk, dst=dst)
+            print(f'Linked {vtk} !')
 
     def _link_images(self):
 
-        print('Installed new version!')
+        # print('Installed new version!')
 
         for dataset in self.processing_paths:
-            print('Dataset', dataset)
+            # print('Dataset', dataset)
             filename, _ = os.path.splitext(dataset)
-            print('Filename', filename)
+            # print('Filename', filename)
             tiff_name = f"{filename}.tiff"
-            print('Tiff name', tiff_name)
+            # print('Tiff name', tiff_name)
             dst = os.path.join(self.dvc_dir, os.path.basename(tiff_name))
-            print('Destination', dst)
+            # print('Destination', dst)
 
             if os.path.exists(dst):
                 os.remove(dst)
                 os.symlink(src=tiff_name, dst=dst)
             else:
                 os.symlink(src=tiff_name, dst=dst)
+            print(f'Linked {tiff_name} !')

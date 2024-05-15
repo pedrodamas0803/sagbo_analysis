@@ -57,7 +57,7 @@ class DVC_uncertainty(DVC_Setup):
 
         for file in files:
             if 'shift' in file:
-                os.remove(file)
+                os.remove(os.path.join(self.uncertainty_dir, file))
 
     @staticmethod
     def _shift_volume(vol: np.ndarray, shifts: tuple):
