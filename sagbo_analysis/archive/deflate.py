@@ -1,7 +1,9 @@
 import os
 import numpy as np
+import h5py
+from skimage.exposure import rescale_intensity
 
-from .archive_utils import read_config_file
+from .archive_utils import read_config_file, get_dataset_name
 
 class MemorySaver:
 
@@ -32,3 +34,50 @@ class MemorySaver:
                 self.processing_dir, name, f'{name}.h5')
             proc_paths.append(path_to_process)
         return proc_paths
+    
+    def reduce_mem_footprint(self, only_selected:bool = True, out_dtype:str = np.uint8):
+
+        if out_dtype not in [np.uint8, np.uint16, np.uint32]:
+            print('Unsuported out dtype, try unsigned int 8, 16 or 32 bits.')
+            return 1
+
+        if not only_selected:
+            self.increment = 1
+
+        for proc_path in self.processing_paths:
+            try:
+                vol = self._load_32bit_vol(proc_path)
+                old_dtype = vol.dtype
+                old_size = vol.size
+            except Exception as e:
+                print(e)
+                continue
+        
+            resc_vol = rescale_intensity(vol, in_range=(vol.min(), vol.max()), out_range=np.uint8)
+
+            self._save_rescaled_vol(path=proc_path, vol=resc_vol)
+
+            print(f'Changed {proc_path} FBP volume from {old_dtype} to {out_dtype} saving {old_size-resc_vol} bytes.')      
+        
+
+    def _load_32bit_vol(self, path:str):
+        '''
+        For the moment it only deals with volFBP !
+        '''
+        with h5py.File(path, 'r') as hin:
+            if 'volFBP' in hin.keys():
+                vol = hin['volFBP'][:]
+        return vol
+    
+    def _save_rescaled_vol(self, path:str, vol:np.ndarray):
+
+        '''
+        For the moment it only deals with volFBP !
+        '''
+        with h5py.File(path, 'a') as hout:
+            hout['volFBP'][...] = vol
+
+
+    
+
+

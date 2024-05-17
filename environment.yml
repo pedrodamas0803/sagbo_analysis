@@ -377,7 +377,6 @@ dependencies:
       - cycler==0.11.0
       - dataclasses==0.6
       - dicttoxml==1.7.16
-      - dvc-preprocessing==0.0.1
       - fabio==2023.6.0
       - fonttools==4.39.0
       - gmsh==4.11.1
@@ -394,10 +393,8 @@ dependencies:
       - numba==0.57.0
       - numpy==1.23.5
       - packaging==23.0
-      - pca-flats==0.0.1
       - pluggy==1.2.0
       - pytest==7.4.0
-      - sagbo-analysis==0.0.1
       - scikit-image==0.20.0
       - silx==1.1.2
       - tifffile==2023.2.28
