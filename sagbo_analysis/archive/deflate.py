@@ -57,7 +57,7 @@ class MemorySaver:
 
             self._save_rescaled_vol(path=proc_path, vol=resc_vol)
 
-            print(f'Changed {proc_path} FBP volume from {old_dtype} to {out_dtype} saving {old_size-resc_vol} bytes.')      
+            print(f'Changed {proc_path} FBP volume from {old_dtype} to {out_dtype}.')      
         
 
     def _load_32bit_vol(self, path:str):
@@ -75,7 +75,10 @@ class MemorySaver:
         For the moment it only deals with volFBP !
         '''
         with h5py.File(path, 'a') as hout:
-            hout['volFBP'][...] = vol
+            if 'volFBP' in hout.keys():
+                del hout['volFBP']
+            hout['volFBPint'] = vol
+            
 
 
     
