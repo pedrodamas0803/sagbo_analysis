@@ -46,7 +46,7 @@ class MemorySaver:
 
         for proc_path in self.processing_paths:
             try:
-                vol = self._load_32bit_vol(proc_path)
+                vol = self._load_32bit_vol(path = proc_path)
                 old_dtype = vol.dtype
                 old_size = vol.size
             except Exception as e:
@@ -54,10 +54,10 @@ class MemorySaver:
                 continue
         
             resc_vol = rescale_intensity(vol, in_range=(vol.min(), vol.max()), out_range=np.uint8)
-
+            print(f'Rescaled vol dtype: {resc_vol.dtype}')
             self._save_rescaled_vol(path=proc_path, vol=resc_vol)
 
-            print(f'Changed {proc_path} FBP volume from {old_dtype} to {out_dtype}.')      
+            print(f'Changed {proc_path} FBP volume from {old_dtype} to {resc_vol.dtype}.')      
         
 
     def _load_32bit_vol(self, path:str):
@@ -77,7 +77,8 @@ class MemorySaver:
         with h5py.File(path, 'a') as hout:
             if 'volFBP' in hout.keys():
                 del hout['volFBP']
-            hout['volFBPint'] = vol
+            hout.create_dataset(name='volFBP', shape=vol.shape, dtype=vol.dtype, data=vol)
+            # hout['volFBP'] = vol
             
 
 

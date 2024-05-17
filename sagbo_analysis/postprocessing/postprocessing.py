@@ -59,7 +59,8 @@ class PostProcessing:
                 print(e)
                 print("There was a problem loading your volume, skipping to the next.")
                 continue
-
+            
+            
             center_of_mass = volume_CoM(vol)
 
             cropped_vol = crop_around_CoM(
