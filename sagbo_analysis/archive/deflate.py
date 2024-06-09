@@ -48,7 +48,6 @@ class MemorySaver:
             try:
                 vol = self._load_32bit_vol(path = proc_path)
                 old_dtype = vol.dtype
-                old_size = vol.size
             except Exception as e:
                 print(e)
                 continue
