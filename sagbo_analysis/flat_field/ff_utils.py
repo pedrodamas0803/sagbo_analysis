@@ -34,7 +34,7 @@ def get_dataset_name(path: str):
 def circular_mask(radius:float, shape:tuple):
     ny = np.arange(0, shape[0], 1)
     nx = np.arange(0, shape[1], 1)
-    x, y = np.meshgrid(ny, nx)
+    x, y = np.meshgrid(nx, ny)
 
     y -= (shape[0] // 2)
     x -= (shape[1] // 2)
