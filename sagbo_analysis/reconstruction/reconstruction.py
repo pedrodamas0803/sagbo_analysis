@@ -236,6 +236,8 @@ class Reconstruction:
         volFBP : np.ndarray
             reconstructed volume
         """
+        ang0 = angles_rad[0]
+        angles_rad = angles_rad - ang0 
 
         solverFBP = cct.solvers.FBP(verbose=False, fbp_filter="hann")
         vol_geom = cct.models.VolumeGeometry.get_default_from_data(sinograms)
