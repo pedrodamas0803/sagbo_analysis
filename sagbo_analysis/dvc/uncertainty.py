@@ -15,12 +15,12 @@ from .dvc_setup import DVC_Setup
 
 class DVC_uncertainty(DVC_Setup):
 
-    def __init__(self, config_file: str, increment: int = 1) -> None:
+    def __init__(self, config_file: str, increment: int = 1, reference_no:int = 0) -> None:
         super().__init__(config_file, increment)
-
+        self._reference_no = reference_no
     @property
     def ref_img_path(self):
-        return f"{self.processing_paths[0].strip('.h5')}.tiff"
+        return f"{self.processing_paths[self._reference_no].strip('.h5')}.tiff"
 
     @property
     def shifted_vol_path(self):
