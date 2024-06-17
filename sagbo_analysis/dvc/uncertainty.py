@@ -15,9 +15,12 @@ from .dvc_setup import DVC_Setup
 
 class DVC_uncertainty(DVC_Setup):
 
-    def __init__(self, config_file: str, increment: int = 1, reference_no:int = 0) -> None:
+    def __init__(
+        self, config_file: str, increment: int = 1, reference_no: int = 0
+    ) -> None:
         super().__init__(config_file, increment)
         self._reference_no = reference_no
+
     @property
     def ref_img_path(self):
         return f"{self.processing_paths[self._reference_no].strip('.h5')}.tiff"
@@ -25,7 +28,7 @@ class DVC_uncertainty(DVC_Setup):
     @property
     def shifted_vol_path(self):
         return f"{os.path.splitext(self.ref_img_path)[0]}_shifted.tiff"
-    
+
     @property
     def mask_vol_path(self):
         return f"{os.path.splitext(self.ref_img_path)[0]}_mask.tiff"
@@ -56,12 +59,11 @@ class DVC_uncertainty(DVC_Setup):
         files = os.listdir(self.uncertainty_dir)
 
         for file in files:
-            if 'shift' in file:
+            if "shift" in file:
                 os.remove(os.path.join(self.uncertainty_dir, file))
 
     @staticmethod
     def _shift_volume(vol: np.ndarray, shifts: tuple):
-
         """
         Shifts and returns the reference volume. Uses first order splines to
         interpolate values and ensure coherency with DVC code.
@@ -178,27 +180,31 @@ class DVC_uncertainty(DVC_Setup):
             if plot_image:
                 plt.figure()
                 plt.imshow(flatened, cmap="gray")
-                plt.hlines([30, nx-30], min_col, max_col)
-                plt.vlines([30, nx-30], min_row, max_row)
+                plt.hlines([30, nx - 30], min_col, max_col)
+                plt.vlines([30, nx - 30], min_row, max_row)
                 plt.show()
 
-            return (int(30), int(nx-30), int(30), int(ny-30), min_depth, max_depth)
-        
+            return (int(30), int(nx - 30), int(30), int(ny - 30), min_depth, max_depth)
 
     def write_mesh_script(self):
 
         roi = self._get_roi()
         script = uncertainty_mesh_size(
-            ref_im=self.ref_img_path, def_im=self.shifted_vol_path, mask_im=self.mask_vol_path, roi=roi
+            ref_im=self.ref_img_path,
+            def_im=self.shifted_vol_path,
+            mask_im=self.mask_vol_path,
+            roi=roi,
         )
 
         with open(self.mesh_script_name, "w") as f:
             for line in script:
                 f.writelines(line)
 
-        mscript = slurm_script(self.mesh_script_name.strip('.m'))
+        mscript = slurm_script(self.mesh_script_name.strip(".m"))
 
-        with open(os.path.join(self.uncertainty_dir, 'launch_mesh_unctty.slurm'), 'w') as f:
+        with open(
+            os.path.join(self.uncertainty_dir, "launch_mesh_unctty.slurm"), "w"
+        ) as f:
             for line in mscript:
                 f.writelines(line)
 
@@ -218,24 +224,26 @@ class DVC_uncertainty(DVC_Setup):
             for line in script:
                 f.writelines(line)
 
-        lscript = slurm_script(self.lambda_script_name.strip('.m'))
-        with open(os.path.join(self.uncertainty_dir, 'launch_lambda_unctty.slurm'), 'w') as f:
+        lscript = slurm_script(self.lambda_script_name.strip(".m"))
+        with open(
+            os.path.join(self.uncertainty_dir, "launch_lambda_unctty.slurm"), "w"
+        ) as f:
             for line in lscript:
                 f.writelines(line)
 
-    def launch_slurm_script(self, which_script: str = 'mesh_size'):
-        '''
+    def launch_slurm_script(self, which_script: str = "mesh_size"):
+        """
         Which script can be mesh_size or lambda_size.
-        '''
-        mesh_script = os.path.join(self.uncertainty_dir, 'launch_mesh_unctty.slurm')
-        lambda_script = os.path.join(self.uncertainty_dir, 'launch_lambda_unctty.slurm')
+        """
+        mesh_script = os.path.join(self.uncertainty_dir, "launch_mesh_unctty.slurm")
+        lambda_script = os.path.join(self.uncertainty_dir, "launch_lambda_unctty.slurm")
 
-        if which_script not in ['mesh_size', 'lambda_size']:
-            print('Invalid script, try again!')
-        elif which_script == 'mesh_size':
-            os.system(f'sbatch {mesh_script}')
-        elif which_script == 'lambda_size':
-            os.system(f'sbatch {lambda_script}')
+        if which_script not in ["mesh_size", "lambda_size"]:
+            print("Invalid script, try again!")
+        elif which_script == "mesh_size":
+            os.system(f"sbatch {mesh_script}")
+        elif which_script == "lambda_size":
+            os.system(f"sbatch {lambda_script}")
 
 
 class DVC_uncertainty_summary(DVC_Setup):
