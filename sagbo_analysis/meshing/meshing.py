@@ -1,32 +1,37 @@
-import os
 import concurrent.futures
-import time
+import os
 import sys
-from typing import Any
+import time
 
-import gmsh
-
-import numpy as np
-import h5py
-import hdf5plugin
+# import hdf5plugin
 import corrct as cct
+import gmsh
+import h5py
+import numpy as np
 import scipy.ndimage as ndi
-from nabu.preproc.phase import PaganinPhaseRetrieval
-from numpy import ndarray, dtype
-from skimage.exposure import rescale_intensity
-from skimage.io import imread, imsave
-from skimage.filters import threshold_otsu
-from skimage.measure import marching_cubes
-from skimage.morphology import binary_erosion, binary_dilation
-
 from dvc_preprocessing.preprocessing import crop_around_CoM, volume_CoM
-from .meshing_utils import (
-    read_config_file,
-    get_dataset_name,
-    compute_loops,
-    create_exterior_surfaces,
-)
+from nabu.preproc.phase import PaganinPhaseRetrieval
+
+# from numpy import ndarray, dtype
+from skimage.exposure import rescale_intensity
+from skimage.filters import threshold_otsu
+from skimage.io import imread, imsave
+from skimage.measure import marching_cubes
+from skimage.morphology import binary_dilation, binary_erosion
+
 from ..utils import calc_color_lims
+from .meshing_utils import (  # create_exterior_surfaces,
+    compute_loops,
+    get_dataset_name,
+    read_config_file,
+)
+
+# from typing import Any
+
+
+
+
+
 
 
 class Meshing:
@@ -37,18 +42,19 @@ class Meshing:
     """
 
     def __init__(
-            self,
-            path: str,
-            delta_beta: int = 60,
-            mesh_size: int = 12,
-            reference_volume: int = 0,
-            mult: float = 1,
-            slab_size: int = 350,
-            prop: float = 0.5,
-            iters: int = 5,
-            struct_size: tuple = (5, 5, 5),
-            chunk_size: int = 512,
-            redo: bool = False
+        self,
+        path: str,
+        delta_beta: int = 60,
+        mesh_size: int = 12,
+        reference_volume: int = 0,
+        mult: float = 1,
+        slab_size: int = 350,
+        prop: float = 0.5,
+        iters: int = 5,
+        struct_size: tuple = (5, 5, 5),
+        chunk_size: int = 512,
+        redo: bool = False,
+        distance=None,
     ):
         """
         __init__ initializes the class to perform meshing on the reference volume for a data-series.
@@ -82,7 +88,6 @@ class Meshing:
         self.mesh_size = mesh_size
         self.processing_dir = cfg["processing_dir"]
         self.datasets = cfg["datasets"]
-        self.overwrite = True if cfg["overwrite"] == True else False
         self.energy = float(cfg["energy"])
         self.distance_entry = cfg["distance_entry"]
         self.pixel_size_m = float(cfg["pixel_size_m"])
@@ -109,18 +114,31 @@ class Meshing:
             self.mesh_dir,
             f"{get_dataset_name(self.selected_datasets)}_full_{self.mesh_size}.msh",
         )
-        self.mask_path = self.tiff_path.strip(".tiff") + "_mask.tiff"
+        self.mask_path = os.path.splitext(self.tiff_path)[0] + "_mask.tiff"
 
         self.redo = True if redo else False
-        #if redo:
+        self.distance = distance
+
+        if cfg["overwrite"]:
+            self.overwrite = True
+        else:
+            self.overwrite = False
+        # if redo:
         #     self._clean_meshing_dir(remove_h5=True)
 
         self._check_mesh_dir()
 
     @property
     def distance(self):
-        with h5py.File(self.datasets[0], "r") as hin:
-            distance = hin[self.distance_entry][()]
+        if self.distance is None:
+            try:
+                with h5py.File(self.datasets[0], "r") as hin:
+                    distance = hin[self.distance_entry][()]
+            except FileNotFoundError:
+                print(
+                    "File not found, defaulting distance to 0.1 m, if you want another value, pass it during initialization."
+                )
+                distance = 100
         return distance * 1e-3
 
     @property
@@ -170,8 +188,8 @@ class Meshing:
         t0 = time.time()
         if not is_retrieved:
             print(
-                f'Will perform phase retrieval with pixel size {self.pixel_size_m:4} m, '
-                f'propagation distance {self.distance:.4} m, at {self.energy} keV and delta/beta {self.delta_beta}. '
+                f"Will perform phase retrieval with pixel size {self.pixel_size_m:4} m, "
+                f"propagation distance {self.distance:.4} m, at {self.energy} keV and delta/beta {self.delta_beta}. "
             )
             paganin = PaganinPhaseRetrieval(
                 projs[0].shape,
@@ -196,10 +214,10 @@ class Meshing:
             return np.rollaxis(projs, 1, 0), angles, shifts
 
     def _save_projections(
-            self,
-            projs: np.ndarray,
-            angles: np.ndarray,
-            shifts: np.ndarray,
+        self,
+        projs: np.ndarray,
+        angles: np.ndarray,
+        shifts: np.ndarray,
     ):
         with h5py.File(self.h5_path, "a") as hout:
             hout["pag_proj"] = projs
@@ -217,20 +235,20 @@ class Meshing:
         volume : reconstructed FBP volume
         """
         with h5py.File(self.h5_path, "a") as hout:
-            if not 'volFBP' in hout.keys():
+            if "volFBP" not in hout.keys():
                 hout["volFBP"] = volume
             else:
-                hout['volFBP'][...] = volume
+                hout["volFBP"][...] = volume
         print("Saved volume to h5 file.")
 
     def _reconstruct(self):
-        '''
+        """
         Reconstructs the FBP volume in chunks of chunk_size length.
 
         Returns
         -------
         volFBP : the reconstructed FBP volume
-        '''
+        """
         data_vwu, angles_rad, shifts = self._retrieve_phase()
         init_angle = angles_rad[0]
         angles_rad = angles_rad - init_angle
@@ -253,7 +271,7 @@ class Meshing:
             vol_geom = cct.models.VolumeGeometry.get_default_from_data(sub_data_vwu)
 
             with cct.projectors.ProjectorUncorrected(
-                    vol_geom, angles_rad, prj_geom=proj_geom
+                vol_geom, angles_rad, prj_geom=proj_geom
             ) as A:
                 subvol, _ = solverFBP(A, sub_data_vwu, iterations=10)
 
@@ -301,9 +319,9 @@ class Meshing:
                 sys.exit(1)
         tmp = np.zeros_like(volume)
         tmp[
-        3 * self.mesh_size: -3 * self.mesh_size,
-        3 * self.mesh_size: -3 * self.mesh_size,
-        3 * self.mesh_size: -3 * self.mesh_size,
+            3 * self.mesh_size : -3 * self.mesh_size,
+            3 * self.mesh_size : -3 * self.mesh_size,
+            3 * self.mesh_size : -3 * self.mesh_size,
         ] = 1
         selem = np.ones(self.struct_size, dtype=np.uint8)
         threshold = threshold_otsu(volume)
@@ -469,52 +487,51 @@ class Meshing:
     def generate_mask(self):
         if not os.path.exists(self.h5_path) or self.redo:
             volFBP = self._reconstruct()
-            print('Reconstructed your volume ! ')
+            print("Reconstructed your volume ! ")
         if not os.path.exists(self.tiff_path):
             volume = self._vol_post_processing(volume=volFBP)
-            print('Finished post processing! ')
+            print("Finished post processing! ")
         else:
-            print('Tiff volume already exists, loading it from file.')
-            volume = imread(self.tiff_path, plugin = 'tifffile')
-            print('Loaded tiff volume from file.')
+            print("Tiff volume already exists, loading it from file.")
+            volume = imread(self.tiff_path, plugin="tifffile")
+            print("Loaded tiff volume from file.")
 
         mask = np.zeros(volume.shape, dtype=bool)
         thrs = threshold_otsu(volume)
         whr = np.where(volume > thrs)
         mask[whr] = True
-        print('Generated initial mask !')
+        print("Generated initial mask !")
 
         final_mask = np.zeros_like(mask)
 
-        with concurrent.futures.ProcessPoolExecutor(os.cpu_count()-2) as pool:
+        with concurrent.futures.ProcessPoolExecutor(os.cpu_count() - 2) as pool:
             for ii, result in enumerate(pool.map(self.dilate_it, mask)):
                 final_mask[ii] = result
-        print('Finished binary dilation .')
+        print("Finished binary dilation .")
 
         mask = np.zeros_like(mask)
 
-        with concurrent.futures.ProcessPoolExecutor(os.cpu_count()-2) as pool:
+        with concurrent.futures.ProcessPoolExecutor(os.cpu_count() - 2) as pool:
             for ii, result in enumerate(pool.map(self.erode_it, final_mask)):
                 mask[ii] = result
-        print('Finished binary erosion')
+        print("Finished binary erosion")
 
-        rescaled_mask = rescale_intensity(mask, in_range = (0, 1), out_range = np.uint8)
+        rescaled_mask = rescale_intensity(mask, in_range=(0, 1), out_range=np.uint8)
 
         # rotated_mask = np.rot90(rescaled_mask, k=3, axes=(1, 2))
 
-        imsave(self.mask_path, rescaled_mask, plugin='tifffile')
-        print('Saved mask ! ')
+        imsave(self.mask_path, rescaled_mask, plugin="tifffile")
+        print("Saved mask ! ")
 
         return rescaled_mask
 
     @staticmethod
     def dilate_it(slc: np.ndarray):
-        return binary_dilation(slc, footprint=np.ones((25,25)))
+        return binary_dilation(slc, footprint=np.ones((25, 25)))
 
     @staticmethod
     def erode_it(slc: np.ndarray):
         return binary_erosion(slc, footprint=np.ones((25, 25)))
-
 
     def _clean_meshing_dir(self, remove_h5: bool = False):
         for filename in os.listdir(self.mesh_dir):
