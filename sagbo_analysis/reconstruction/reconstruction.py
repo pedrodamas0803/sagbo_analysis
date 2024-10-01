@@ -67,9 +67,20 @@ class Reconstruction:
         tuple
             shape of the sinograms stack following the numpy convention.
         """
-        with h5py.File(self.processing_paths[0], "r") as hin:
-            nz, ny, nx = hin["projections"].shape
-        return ny, nz, nx
+        
+        for path in self.processing_paths:
+            try:
+                with h5py.File(path, "r") as hin:
+                    nz, ny, nx = hin["projections"].shape
+                return ny, nz, nx
+            except Exception as e:
+                print(f'Could not open file {path}:', e)
+                continue
+            
+        if ny==ny==nz==None:
+            raise Exception('No projections were found. Fisrt run flat field correction.')
+
+             
 
     @property
     def n_subvolumes(self):
@@ -104,6 +115,9 @@ class Reconstruction:
         """
 
         for dataset in self.processing_paths:
+            if not os.path.exists(dataset):
+                print('Your file does not exist, skipping to the next.')
+                continue
             keys = self._get_h5_keys(path=dataset)
             if not self._is_valid_scan(h5_keys=keys):
                 print("Your scan is not valid, skipping to the next.")

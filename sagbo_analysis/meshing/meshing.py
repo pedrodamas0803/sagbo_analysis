@@ -29,11 +29,6 @@ from .meshing_utils import (  # create_exterior_surfaces,
 # from typing import Any
 
 
-
-
-
-
-
 class Meshing:
     """
     Class to perform automatic meshing of a volume.
@@ -54,7 +49,7 @@ class Meshing:
         struct_size: tuple = (5, 5, 5),
         chunk_size: int = 512,
         redo: bool = False,
-        distance=None,
+        distance_mm=None,
     ):
         """
         __init__ initializes the class to perform meshing on the reference volume for a data-series.
@@ -117,7 +112,7 @@ class Meshing:
         self.mask_path = os.path.splitext(self.tiff_path)[0] + "_mask.tiff"
 
         self.redo = True if redo else False
-        self.distance = distance
+        self._distance = distance_mm
 
         if cfg["overwrite"]:
             self.overwrite = True
@@ -130,7 +125,7 @@ class Meshing:
 
     @property
     def distance(self):
-        if self.distance is None:
+        if self._distance is None:
             try:
                 with h5py.File(self.datasets[0], "r") as hin:
                     distance = hin[self.distance_entry][()]
@@ -139,6 +134,8 @@ class Meshing:
                     "File not found, defaulting distance to 0.1 m, if you want another value, pass it during initialization."
                 )
                 distance = 100
+        else:
+            distance = self._distance
         return distance * 1e-3
 
     @property
