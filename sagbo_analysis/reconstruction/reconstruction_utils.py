@@ -1,5 +1,7 @@
 import configparser
 import os
+import corrct as cct
+import numpy as np
 
 
 def read_config_file(path: str):
@@ -32,3 +34,39 @@ def read_config_file(path: str):
 
 def get_dataset_name(path: str):
     return os.path.splitext(path)[0].split("/")[-1]
+
+
+def FBP_reconstruction(
+    sinograms: np.ndarray, angles_rad: np.array, shifts: np.ndarray
+) -> np.ndarray:
+    """
+    _reconstruct_FBP reconstructs a tomography volume using a Filtered Back-Projection
+
+    Parameters
+    ----------
+    sinograms : np.ndarray
+        stack of sinograms to be used for the reconstruction
+    angles_rad : np.array
+        array of angles corresponding to each line of a sinogram
+    shifts : np.ndarray
+        array of detector shifts calculated using tomogrpahic consistency
+
+    Returns
+    -------
+    volFBP : np.ndarray
+        reconstructed volume
+    """
+    ang0 = angles_rad[0]
+    angles_rad = angles_rad - ang0
+
+    solverFBP = cct.solvers.FBP(verbose=False, fbp_filter="hann")
+    vol_geom = cct.models.VolumeGeometry.get_default_from_data(sinograms)
+    proj_geom = cct.models.ProjectionGeometry.get_default_parallel()
+    proj_geom.set_detector_shifts_vu(shifts)
+
+    with cct.projectors.ProjectorUncorrected(
+        vol_geom, angles_rot_rad=angles_rad, prj_geom=proj_geom
+    ) as A:
+        volFBP, _ = solverFBP(A, sinograms, iterations=10)
+
+    return volFBP

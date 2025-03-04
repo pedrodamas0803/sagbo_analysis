@@ -11,13 +11,13 @@ from .reconstruction_utils import get_dataset_name, read_config_file
 
 
 class Reconstruction:
-
     """Class that runs the reconstruction of the selected datasets, by default performs only FBP reconstruction."""
 
     def __init__(
         self,
         path: str,
         increment: int = 1,
+        acq_numbers: list = None,
         sirt_iter: int = 0,
         PDHG_iter: int = 0,
         chunksize: int = 512,
@@ -41,20 +41,29 @@ class Reconstruction:
         cfg = read_config_file(path)
         self.datasets = cfg["datasets"]
         self.processing_dir = cfg["processing_dir"]
-        self.increment = increment
         self.sirt_iter = sirt_iter
         self.PDHG_iter = PDHG_iter
         self.overwrite = False
         if cfg["overwrite"] == "True":
             self.overwrite = True
+        self.acq_numbers = acq_numbers
+        if self.acq_numbers is not None:
+            self.increment = 100000
+        else:
+            self.increment = increment
+
         self.chunksize = chunksize
 
     @property
     def selected_datasets(self):
         datasets = []
-        for ii, dataset in enumerate(self.datasets):
-            if ii % self.increment == 0:
-                datasets.append(dataset)
+        if self.acq_numbers is None:
+            for ii, dataset in enumerate(self.datasets):
+                if ii % self.increment == 0:
+                    datasets.append(dataset)
+        else:
+            for ii, acq_number in enumerate(self.acq_numbers):
+                datasets.append(self.datasets[acq_number])
         return datasets
 
     @property
@@ -67,20 +76,20 @@ class Reconstruction:
         tuple
             shape of the sinograms stack following the numpy convention.
         """
-        
+
         for path in self.processing_paths:
             try:
                 with h5py.File(path, "r") as hin:
                     nz, ny, nx = hin["projections"].shape
                 return ny, nz, nx
             except Exception as e:
-                print(f'Could not open file {path}:', e)
+                print(f"Could not open file {path}:", e)
                 continue
-            
-        if ny==ny==nz==None:
-            raise Exception('No projections were found. Fisrt run flat field correction.')
 
-             
+        if ny == ny == nz == None:
+            raise Exception(
+                "No projections were found. Fisrt run flat field correction."
+            )
 
     @property
     def n_subvolumes(self):
@@ -116,7 +125,7 @@ class Reconstruction:
 
         for dataset in self.processing_paths:
             if not os.path.exists(dataset):
-                print('Your file does not exist, skipping to the next.')
+                print("Your file does not exist, skipping to the next.")
                 continue
             keys = self._get_h5_keys(path=dataset)
             if not self._is_valid_scan(h5_keys=keys):
@@ -251,7 +260,7 @@ class Reconstruction:
             reconstructed volume
         """
         ang0 = angles_rad[0]
-        angles_rad = angles_rad - ang0 
+        angles_rad = angles_rad - ang0
 
         solverFBP = cct.solvers.FBP(verbose=False, fbp_filter="hann")
         vol_geom = cct.models.VolumeGeometry.get_default_from_data(sinograms)

@@ -13,23 +13,36 @@ from .mscript import uncertainty_mesh_size, uncertainty_lambda_size
 
 class DVC_Setup:
     """
-    Class that reads a configuration file and sets up the directory structure to run DVC.
+
+    Class that reads a configuration file and sets up the directory
+    structure to run DVC.
 
     """
 
-    def __init__(self, config_file: str, increment: int = 1) -> None:
+    def __init__(
+        self, config_file: str, increment: int = 1, acq_numbers: list = None
+    ) -> None:
+
         cfg = read_config_file(path=config_file)
 
         self.processing_dir = cfg["processing_dir"]
         self.datasets = cfg["datasets"]
-        self.increment = increment
+        self.acq_numbers = acq_numbers
+        if self.acq_numbers is not None:
+            self.increment = 100000
+        else:
+            self.increment = increment
 
     @property
     def selected_datasets(self):
         datasets = []
-        for ii, dataset in enumerate(self.datasets):
-            if ii % self.increment == 0:
-                datasets.append(dataset)
+        if self.acq_numbers is None:
+            for ii, dataset in enumerate(self.datasets):
+                if ii % self.increment == 0:
+                    datasets.append(dataset)
+        else:
+            for ii, acq_number in enumerate(self.acq_numbers):
+                datasets.append(self.datasets[acq_number])
         return datasets
 
     @property
@@ -68,7 +81,7 @@ class DVC_Setup:
         self._link_mask()
 
     def _link_mask(self):
-        mask_path = glob.glob(os.path.join(self.meshing_dir, '*mask*'))
+        mask_path = glob.glob(os.path.join(self.meshing_dir, "*mask*"))
         # print(f'Possible masks in {mask_path}.')
 
         for mask in mask_path:
@@ -78,8 +91,8 @@ class DVC_Setup:
                 os.symlink(src=mask, dst=dst)
             else:
                 os.symlink(src=mask, dst=dst)
-            
-            print(f'Linked {mask} !')
+
+            print(f"Linked {mask} !")
 
     def _link_vtks(self):
         vtks = glob.glob(os.path.join(self.meshing_dir, "*.vtk"))
@@ -91,24 +104,18 @@ class DVC_Setup:
                 os.symlink(src=vtk, dst=dst)
             else:
                 os.symlink(src=vtk, dst=dst)
-            print(f'Linked {vtk} !')
+            print(f"Linked {vtk} !")
 
     def _link_images(self):
 
-        # print('Installed new version!')
-
         for dataset in self.processing_paths:
-            # print('Dataset', dataset)
             filename, _ = os.path.splitext(dataset)
-            # print('Filename', filename)
             tiff_name = f"{filename}.tiff"
-            # print('Tiff name', tiff_name)
             dst = os.path.join(self.dvc_dir, os.path.basename(tiff_name))
-            # print('Destination', dst)
 
             if os.path.exists(dst):
                 os.remove(dst)
                 os.symlink(src=tiff_name, dst=dst)
             else:
                 os.symlink(src=tiff_name, dst=dst)
-            print(f'Linked {tiff_name} !')
+            print(f"Linked {tiff_name} !")

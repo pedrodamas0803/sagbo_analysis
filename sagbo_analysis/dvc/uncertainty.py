@@ -248,10 +248,13 @@ class DVC_uncertainty(DVC_Setup):
 
 class DVC_uncertainty_summary(DVC_Setup):
 
-    def __init__(self, config_file: str, increment: int = 1) -> None:
+    def __init__(self, config_file: str, increment: int = 1, shifts: list = []) -> None:
         super().__init__(config_file, increment)
 
-        z_shift, y_shift, x_shift = self._get_shifts()
+        if not shifts:
+            z_shift, y_shift, x_shift = self._get_shifts()
+        else:
+            z_shift, y_shift, x_shift = shifts
 
         self.zoffset = z_shift
         self.yoffset = y_shift

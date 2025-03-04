@@ -1,10 +1,12 @@
-def uncertainty_mesh_size(ref_im: str, def_im: str, mask_im:str, roi: tuple, nscale: int = 1):
+def uncertainty_mesh_size(
+    ref_im: str, def_im: str, mask_im: str, roi: tuple, nscale: int = 1
+):
 
     assert len(roi) == 6
 
     xmin, xmax, ymin, ymax, zmin, zmax = roi
     script = [
-        f" addpath(genpath('~/UFreckles_PD/'));\n",
+        f"addpath(genpath('~/UFreckles_PD/'));\n",
         f"for mesh_size = [64:-4:8] \n",
         f"    param.analysis='correlation'; \n",
         f"    param.reference_image='{ref_im}';\n",
@@ -27,7 +29,7 @@ def uncertainty_mesh_size(ref_im: str, def_im: str, mask_im:str, roi: tuple, nsc
         f"    LoadParameters(model,nmod); \n",
         f"    ReferenceImage(nmod); \n",
         f"    LoadMeshes(nmod); \n",
-        f"    LoadMask(nmod); \n",
+        f"    LoadMask3D(nmod); \n",
         f"    nscale=model.nscale; \n",
         f"\n",
         f"    U = []; \n",
@@ -42,7 +44,7 @@ def uncertainty_mesh_size(ref_im: str, def_im: str, mask_im:str, roi: tuple, nsc
         f"    unix(['cp ' ,fullfile('TMP','0_error_0.mat'),' ', strrep(param.result_file,'.res','-error.res')]); \n",
         f"    load(fullfile('TMP','0_3d_mesh_0'),'Nnodes','Nelems','xo','yo','zo','conn','elt','ng','rint','Smesh','ns'); \n",
         f"    save(param.result_file,'U','Nnodes','Nelems','xo','yo','zo','param','model','nmod','conn','elt','ng','rint','Smesh','ns', 'Uini'); \n",
-        f"    postproVTK3D(param.result_file,0,1); \n",     
+        f"    postproVTK3D(param.result_file,0,1); \n",
         f"end \n",
     ]
 
@@ -50,14 +52,14 @@ def uncertainty_mesh_size(ref_im: str, def_im: str, mask_im:str, roi: tuple, nsc
 
 
 def uncertainty_lambda_size(
-    ref_im: str, def_im: str, mask_im:str, mesh_size: int, roi: tuple, nscale: int = 1
+    ref_im: str, def_im: str, mask_im: str, mesh_size: int, roi: tuple, nscale: int = 1
 ):
 
     assert len(roi) == 6
 
     xmin, xmax, ymin, ymax, zmin, zmax = roi
     script = [
-        f" addpath(genpath('~/UFreckles_PD/'));\n",
+        f"addpath(genpath('~/UFreckles_PD/'));\n",
         f"mesh_size = {mesh_size}\n",
         f"for lambda = [0.5:0.1:2]*mesh_size \n",
         f"    param.analysis='correlation'; \n",
@@ -81,7 +83,7 @@ def uncertainty_lambda_size(
         f"    LoadParameters(model,nmod); \n",
         f"    ReferenceImage(nmod); \n",
         f"    LoadMeshes(nmod); \n",
-        f"    LoadMask(nmod); \n",
+        f"    LoadMask3D(nmod); \n",
         f"    nscale=model.nscale; \n",
         f"\n",
         f"    U = []; \n",
@@ -105,7 +107,7 @@ def uncertainty_lambda_size(
 
 def slurm_script(script_name: str, partition: str = "nice-long", cpus_per_task: int = 40, mem_gb: int = 200, mail_type: str = "NONE", mail_address: [str, None] = None):  # type: ignore
     try:
-        final_name = script_name.split('/')[-1]
+        final_name = script_name.split("/")[-1]
     except Exception as e:
         print(e)
         final_name = script_name

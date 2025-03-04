@@ -13,7 +13,14 @@ from .align_utils import binning, get_dataset_name, read_config_file
 class ProjectionAlignment:
     """Class to perform projection alignment based on tomographic consistency."""
 
-    def __init__(self, path: str, increment: int = 1, iterations=5, slab_size=400):
+    def __init__(
+        self,
+        path: str,
+        increment: int = 1,
+        acq_numbers: list = None,
+        iterations=5,
+        slab_size=400,
+    ):
         """
         Inputs:
 
@@ -40,14 +47,22 @@ class ProjectionAlignment:
             self.overwrite = True
         self.iterations = iterations
         self.slab_size = slab_size
-        self.increment = increment
+        self.acq_numbers = acq_numbers
+        if self.acq_numbers is not None:
+            self.increment = 100000
+        else:
+            self.increment = increment
 
     @property
     def selected_datasets(self):
         datasets = []
-        for ii, dataset in enumerate(self.datasets):
-            if ii % self.increment == 0:
-                datasets.append(dataset)
+        if self.acq_numbers is None:
+            for ii, dataset in enumerate(self.datasets):
+                if ii % self.increment == 0:
+                    datasets.append(dataset)
+        else:
+            for ii, acq_number in enumerate(self.acq_numbers):
+                datasets.append(self.datasets[acq_number])
         return datasets
 
     @property
@@ -115,7 +130,7 @@ class ProjectionAlignment:
                 try:
                     projs, angles_rad, is_aligned, is_return = self._load_data(
                         path=proc_path, xprop=xprop
-                )
+                    )
                 except Exception as e:
                     print(e)
                     print("Tour scan is probably broken, going to the next.")
@@ -270,6 +285,6 @@ class ProjectionAlignment:
             angles = hout["angles"][:]
             tmp_prj = projs.copy()
             tmp_ang = angles.copy()
-            hout["projections"][...] = np.flip(tmp_prj, axis = (0, 1))
+            hout["projections"][...] = np.flip(tmp_prj, axis=(0, 1))
             hout["angles"][...] = np.flip(tmp_ang, axis=0)
             print("Updated reverse scan !")

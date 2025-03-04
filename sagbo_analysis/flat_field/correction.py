@@ -9,17 +9,24 @@ from .ff_utils import get_dataset_name, read_config_file, sagbo_mask
 
 
 class FlatFieldCorrection:
-
     """
     Class that reads the PCA master file for the time-series and applies the corrections to selected datasets.
     """
 
-    def __init__(self, path: str, increment: int = 1, mask: np.ndarray = None):
+    def __init__(
+        self,
+        path: str,
+        increment: int = 1,
+        acq_numbers: list = None,
+        mask: np.ndarray = None,
+    ):
         """
         Inputs:
 
         path: str - path to the configuration file created by SampleInfo.
         increment: int - the increment for the processing of datasets within the time-series.
+        acq_numbers: list - list of dataset numbers to process, if different than None will override the increment behavior.
+        mask: np.ndarray - mask where the correction will be applied.
 
         """
 
@@ -32,7 +39,11 @@ class FlatFieldCorrection:
         self.angles_entry = cfg["angles_entry"]
         self.processing_dir = cfg["processing_dir"]
         self.flats_entry = cfg["flats_entry"]
-        self.increment = increment
+        self.acq_numbers = acq_numbers
+        if self.acq_numbers is not None:
+            self.increment = 100000
+        else:
+            self.increment = increment
         self.overwrite = False
         if cfg["overwrite"] == "True":
             self.overwrite = True
@@ -42,9 +53,13 @@ class FlatFieldCorrection:
     @property
     def selected_datasets(self):
         datasets = []
-        for ii, dataset in enumerate(self.datasets):
-            if ii % self.increment == 0:
-                datasets.append(dataset)
+        if self.acq_numbers is None:
+            for ii, dataset in enumerate(self.datasets):
+                if ii % self.increment == 0:
+                    datasets.append(dataset)
+        else:
+            for ii, acq_number in enumerate(self.acq_numbers):
+                datasets.append(self.datasets[acq_number])
         return datasets
 
     @property
@@ -84,15 +99,13 @@ class FlatFieldCorrection:
                         projections, angles = self._load_proj_stack(selected_dataset)
                     except Exception as e:
                         print(e)
-                        print('Your scan was probably broken, going to the next. ')
+                        print("Your scan was probably broken, going to the next. ")
                         continue
 
                     if radius is not None:
                         pca.correct_stack(projections, save_path=saving_path, mask=mask)
                     else:
-                        pca.correct_stack(
-                            projections, save_path=saving_path, xprop=prop
-                        )
+                        pca.correct_stack(projections, save_path=saving_path, prop=prop)
 
                     with h5py.File(saving_path, "a") as hout:
                         hout["angles"] = angles
@@ -104,15 +117,13 @@ class FlatFieldCorrection:
                         projections, angles = self._load_proj_stack(selected_dataset)
                     except Exception as e:
                         print(e)
-                        print('Your scan was probably broken, going to the next. ')
+                        print("Your scan was probably broken, going to the next. ")
                         continue
 
                     if radius is not None:
                         pca.correct_stack(projections, save_path=saving_path, mask=mask)
                     else:
-                        pca.correct_stack(
-                            projections, save_path=saving_path, xprop=prop
-                        )
+                        pca.correct_stack(projections, save_path=saving_path, prop=prop)
 
                     with h5py.File(saving_path, "a") as hout:
                         hout["angles"] = angles
@@ -123,11 +134,11 @@ class FlatFieldCorrection:
                 self.selected_datasets, self.saving_paths
             ):
                 if not self._check_corrected_projections(saving_path):
-                    try:                    
+                    try:
                         projections, angles = self._load_proj_stack(selected_dataset)
                     except Exception as e:
                         print(e)
-                        print('Your scan was probably broken, going to the next. ')
+                        print("Your scan was probably broken, going to the next. ")
                         continue
 
                     flat, dark = self._load_flats_darks()

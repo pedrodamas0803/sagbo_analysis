@@ -3,6 +3,8 @@ import os
 import time
 
 import numpy as np
+import vtk
+import vtkmodules
 import scipy.ndimage as ndi
 from scipy.signal import find_peaks
 from skimage.exposure import histogram
@@ -103,3 +105,53 @@ def calc_color_lims(img, mult=3, height=1e6):
     vmax = peaks[-1] + mult * img.std()
 
     return vmin, vmax
+
+
+def write_numpy_arrays_to_vtk(numpy_arrays, file_prefix):
+    """
+    Write a series of 3D numpy arrays to VTK files for visualization in ParaView.
+
+    Parameters:
+    numpy_arrays (list of numpy arrays): A list of 3D numpy arrays (each with shape [Z, Y, X]).
+    file_prefix (str): Prefix for the filenames (e.g., "output_array_").
+
+    Example:
+    numpy_arrays = [np.random.rand(10, 10, 10), np.random.rand(10, 10, 10)]
+    write_numpy_arrays_to_vtk(numpy_arrays, "output_array_")
+    """
+
+    for idx, array_n in enumerate(numpy_arrays):
+        # Ensure the numpy array is 3D
+        if array_n.ndim != 3:
+            raise ValueError(f"Array at index {idx} is not a 3D array!")
+
+        # Get the shape of the array
+        z_dim, y_dim, x_dim = array_n.shape
+
+        # Convert numpy array to VTK data structure
+        vtk_data = vtk.vtkImageData()
+        vtk_data.SetDimensions(x_dim, y_dim, z_dim)
+        vtk_data.SetSpacing(1.0, 1.0, 1.0)  # You can adjust spacing as needed
+
+        # set the background to nan
+        array = array_n.copy()
+        array[array_n == 0] = np.nan
+
+        # Create a VTK array and directly set the numpy array as the scalars
+        vtk_array = vtkmodules.util.numpy_support.numpy_to_vtk(
+            array.ravel(), deep=True, array_type=vtk.VTK_INT
+        )
+        vtk_array.SetName("ImageData")
+
+        # Add the array to the image data
+        vtk_data.GetPointData().SetScalars(vtk_array)
+
+        # Define the filename for the VTK file
+        filename = f"{file_prefix}{idx}.vtk"
+
+        # Write the VTK file
+        writer = vtk.vtkStructuredPointsWriter()
+        writer.SetFileName(filename)
+        writer.SetInputData(vtk_data)
+        writer.Write()
+        print(f"Written: {filename}")

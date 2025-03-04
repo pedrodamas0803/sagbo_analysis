@@ -8,22 +8,30 @@ from .load_utils import read_config_file, get_dataset_name
 
 class LoadReader:
 
-    def __init__(self, path: str, increment: int = 1):
+    def __init__(self, path: str, increment: int = 1, acq_numbers: list = None):
 
         cfg = read_config_file(path)
         self.processing_dir = cfg["processing_dir"]
         self.datasets = cfg["datasets"]
         self.load_entry = cfg["load_entry"]
         self.projs_entry = cfg["proj_entry"]
-        self.increment = increment
         self.time_entry = "/2.1/measurement/epoch_trig"
+        self.acq_numbers = acq_numbers
+        if self.acq_numbers is not None:
+            self.increment = 100000
+        else:
+            self.increment = increment
 
     @property
     def selected_datasets(self):
         datasets = []
-        for ii, dataset in enumerate(self.datasets):
-            if ii % self.increment == 0:
-                datasets.append(dataset)
+        if self.acq_numbers is None:
+            for ii, dataset in enumerate(self.datasets):
+                if ii % self.increment == 0:
+                    datasets.append(dataset)
+        else:
+            for ii, acq_number in enumerate(self.acq_numbers):
+                datasets.append(self.datasets[acq_number])
         return datasets
 
     @property
