@@ -2,6 +2,7 @@ import os, concurrent.futures
 
 import h5py
 import numpy as np
+import scipy.ndimage as ndi
 from dvc_preprocessing.preprocessing import crop_around_CoM, volume_CoM
 from skimage.exposure import rescale_intensity
 from skimage.io import imsave
@@ -138,22 +139,27 @@ class PostProcessing:
 
     def _calculate_mask(self, vol: np.ndarray):
 
-        mask = np.zeros_like(vol)
-        tmp = np.zeros_like(vol)
+        mask = np.zeros(vol.shape, dtype = np.uint8)
+        mask_filled = np.zeros_like(mask)
 
         thrs = threshold_otsu(vol)
 
         mask[vol > thrs] = np.iinfo(mask.dtype).max
 
-        with concurrent.futures.ProcessPoolExecutor() as pool:
+        # with concurrent.futures.ProcessPoolExecutor() as pool:
 
-            for ii, result in enumerate(pool.map(self.dilate_it, mask)):
-                tmp[ii] = result
+        #     for ii, result in enumerate(pool.map(self.dilate_it, mask)):
+        #         tmp[ii] = result
 
-        with concurrent.futures.ProcessPoolExecutor() as pool:
+        # with concurrent.futures.ProcessPoolExecutor() as pool:
 
-            for ii, result in enumerate(pool.map(self.erode_it, tmp)):
-                mask[ii] = result
+        #     for ii, result in enumerate(pool.map(self.erode_it, tmp)):
+        #         mask[ii] = result
+
+        mask_filled = ndi.binary_fill_holes(mask)
+        mask_filled = ndi.binary_erosion(mask_filled)
+
+        mask[mask_filled == True] = 1
 
         return mask
 

@@ -376,6 +376,8 @@ class DVC_uncertainty_summary(DVC_Setup):
         # choice = self.choose_mesh_size(mesh_size, std)
         # print(f"The lowest uncertainty level is at a mesh size = {choice}.")
 
+        
+
     def lambda_size_summary(self):
 
         results = self._get_results_dict(analysis_type="lambda")
