@@ -89,7 +89,8 @@ class ProjectionAlignment:
                 data_vwu = tmp.copy()
                 del tmp
                 t1 = time.time()
-                print(f"Deringed all {data_vwu.shape[0]} sinograms in {t1 - t0} s.")
+                t = t1 - t0
+                print(f"Deringed all {data_vwu.shape[0]} sinograms in {t:.2} s.")
             except ValueError:
                 print(
                     "Probably this dataset was already deringed, skipping to the next."
@@ -114,7 +115,7 @@ class ProjectionAlignment:
                 )
             except Exception as e:
                 print(e)
-                print("Tour scan is probably broken, going to the next.")
+                print("Your scan is probably broken, going to the next.")
                 continue
 
             if self.dering and not is_aligned:
@@ -133,7 +134,7 @@ class ProjectionAlignment:
                     )
                 except Exception as e:
                     print(e)
-                    print("Tour scan is probably broken, going to the next.")
+                    print("Your scan is probably broken, going to the next.")
                     continue
 
             if not is_aligned:
@@ -285,6 +286,6 @@ class ProjectionAlignment:
             angles = hout["angles"][:]
             tmp_prj = projs.copy()
             tmp_ang = angles.copy()
-            hout["projections"][...] = np.flip(tmp_prj, axis=(0, 1))
+            hout["projections"][...] = np.flip(tmp_prj, axis=0)
             hout["angles"][...] = np.flip(tmp_ang, axis=0)
             print("Updated reverse scan !")

@@ -75,5 +75,8 @@ def align_standalone(
     print(f"Center-of-rotation found using 360 redundancy: {cor2}")
 
     shifts, _ = optim.tomo_consistency_traditional(cor2, iterations=iterations)
-
-    return shifts * 2, cor2 * 2
+    
+    if binproj:
+        return shifts * 2, cor2 * 2
+    else:
+        return shifts, cor2

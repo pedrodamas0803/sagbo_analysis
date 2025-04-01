@@ -1,7 +1,8 @@
 import configparser
-import os
+import os, time, concurrent.futures
 import corrct as cct
 import numpy as np
+from nabu.preproc.phase import PaganinPhaseRetrieval
 
 
 def read_config_file(path: str):
@@ -70,3 +71,28 @@ def FBP_reconstruction(
         volFBP, _ = solverFBP(A, sinograms, iterations=10)
 
     return volFBP
+
+def paganin_retrieve_phase(projs, distance, energy, delta_beta, pixel_size_m):
+
+        t0 = time.time()
+        print(
+            f"Will perform phase retrieval with pixel size {pixel_size_m:4} m, "
+            f"propagation distance {distance:.4} m, at {energy} keV and delta/beta {delta_beta}. "
+        )
+        paganin = PaganinPhaseRetrieval(
+            projs[0].shape,
+            distance=distance,
+            energy=energy,
+            delta_beta=delta_beta,
+            pixel_size=pixel_size_m,
+        )
+
+        ret_projs = np.zeros_like(projs)
+        with concurrent.futures.ProcessPoolExecutor(os.cpu_count() - 2) as pool:
+            for ii, proj in enumerate(pool.map(paganin.retrieve_phase, projs)):
+                ret_projs[ii] = proj
+
+        print(
+            f"Applied phase retrieval on the stack of projections in {time.time() - t0}."
+        )
+        return np.rollaxis(ret_projs, 1, 0)
